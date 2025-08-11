@@ -22,13 +22,20 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this); // Changed from 3 to 2
+    _tabController = TabController(length: 2, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  String _generateWorkoutName() {
+    final now = DateTime.now();
+    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = dayNames[now.weekday - 1];
+    return '$dayName Workout';
   }
 
   @override
@@ -53,7 +60,7 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
           tabs: const [
             Tab(text: 'From Split'),
             Tab(text: 'Empty'),
-          ], // Removed 'Quick Start' tab
+          ],
         ),
       ),
       body: TabBarView(
@@ -61,7 +68,7 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
         children: [
           _buildFromSplitTab(),
           _buildEmptyTab(),
-        ], // Removed _buildQuickStartTab()
+        ],
       ),
     );
   }
@@ -70,8 +77,9 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
     return Consumer<SplitProvider>(
       builder: (context, splitProvider, child) {
         final splits = splitProvider.splits;
+        final sortedSplits = List<WorkoutSplit>.from(splits);
 
-        if (splits.isEmpty) {
+        if (sortedSplits.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -113,8 +121,7 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
                     ),
                   ),
                   onPressed: () {
-                    // Navigate to split creation screen
-                    // Implementation depends on your navigation setup
+                    Navigator.pushNamed(context, '/create-split');
                   },
                 ),
               ],
@@ -122,13 +129,65 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: splits.length,
-          itemBuilder: (context, index) {
-            final split = splits[index];
-            return _buildSplitCard(split);
-          },
+        return Column(
+          children: [
+            // Recently used section
+            if (sortedSplits.length > 1) ...[
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Recently Used',
+                  style: TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.velvetMist,
+                  ),
+                ),
+              ),
+              // Show top 2 recent splits
+              ...sortedSplits.take(2).map((split) => 
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: _buildCompactSplitCard(split),
+                )
+              ).toList(),
+              
+              const SizedBox(height: 16),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Divider(color: Colors.white24),
+              ),
+              const SizedBox(height: 8),
+            ],
+            
+            // All splits section
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              alignment: Alignment.centerLeft,
+              child: Text(
+                sortedSplits.length > 1 ? 'All Splits' : 'Your Splits',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.velvetMist,
+                ),
+              ),
+            ),
+            
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: sortedSplits.length,
+                itemBuilder: (context, index) {
+                  final split = sortedSplits[index];
+                  return _buildSplitCard(split);
+                },
+              ),
+            ),
+          ],
         );
       },
     );
@@ -206,6 +265,85 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
     );
   }
 
+  Widget _buildCompactSplitCard(WorkoutSplit split) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: AppColors.royalVelvet,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        onTap: () {
+          // Quick start with first session of this split
+          if (split.sessions.isNotEmpty) {
+            _startWorkoutFromSession(split, split.sessions.first);
+          }
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.velvetHighlight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.fitness_center,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      split.name,
+                      style: const TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      '${split.sessions.length} sessions',
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 12,
+                        color: AppColors.velvetPale,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.velvetPale.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  'Quick Start',
+                  style: TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.velvetMist,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSessionItem(WorkoutSplit split, WorkoutSession session) {
     final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
     final exerciseCount = session.exercises.length;
@@ -277,6 +415,10 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
   }
 
   Widget _buildEmptyTab() {
+    final TextEditingController workoutNameController = TextEditingController(
+      text: _generateWorkoutName(),
+    );
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -311,7 +453,7 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
             child: TextField(
-              controller: TextEditingController(text: 'New Workout'),
+              controller: workoutNameController,
               decoration: InputDecoration(
                 labelText: 'Workout Name',
                 labelStyle: TextStyle(color: AppColors.velvetLight),
@@ -352,7 +494,10 @@ class _WorkoutStartScreenState extends State<WorkoutStartScreen> with SingleTick
               ),
             ),
             onPressed: () {
-              _startEmptyWorkout('New Workout');
+              final name = workoutNameController.text.isNotEmpty 
+                  ? workoutNameController.text 
+                  : _generateWorkoutName();
+              _startEmptyWorkout(name);
             },
           ),
         ],

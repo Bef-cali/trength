@@ -23,6 +23,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   String? expandedExerciseId;
   // Track if PR celebration is showing
   bool _showingPRCelebration = false;
+  // Track if advanced options are shown in beginner mode
+  bool _showAdvancedOptions = false;
 
   @override
   Widget build(BuildContext context) {
@@ -197,7 +199,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
 
                                             // Start rest timer if set was completed
                                             if (completed) {
-                                              workoutProvider.startRestTimer(90); // Default 90 seconds
+                                              // Smart rest timer duration based on exercise and set type
+                                              final restDuration = _calculateRestDuration(
+                                                exerciseId, set, exerciseProvider);
+                                              workoutProvider.startRestTimer(restDuration);
 
                                               // Check if this set is a PR after completion
                                               if (!set.isWarmup &&
@@ -718,42 +723,87 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // RPE input
-                TextFormField(
-                  initialValue: rpe?.toString() ?? '',
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'RPE (optional)',
-                    labelStyle: TextStyle(color: Colors.white70),
-                    border: OutlineInputBorder(),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: Colors.white30),
-                    ),
-                    hintText: '1-10',
-                    hintStyle: TextStyle(color: Colors.white30),
-                  ),
-                  style: const TextStyle(color: Colors.white),
-                  validator: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      final rpeValue = double.tryParse(value);
-                      if (rpeValue == null) {
-                        return 'Please enter a valid number';
-                      }
-                      if (rpeValue < 1 || rpeValue > 10) {
-                        return 'RPE must be between 1 and 10';
-                      }
-                    }
-                    return null;
-                  },
-                  onSaved: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      rpe = double.parse(value);
-                    } else {
-                      rpe = null;
-                    }
+                // Advanced options (RPE) - shown based on beginner mode or toggle
+                Consumer<WorkoutProvider>(
+                  builder: (context, workoutProvider, _) {
+                    final showAdvanced = !workoutProvider.isBeginnerMode || _showAdvancedOptions;
+                    
+                    return Column(
+                      children: [
+                        // Show advanced toggle for beginners
+                        if (workoutProvider.isBeginnerMode && !_showAdvancedOptions)
+                          TextButton.icon(
+                            icon: Icon(
+                              Icons.expand_more,
+                              color: AppColors.velvetPale,
+                              size: 16,
+                            ),
+                            label: Text(
+                              'Show Advanced Options',
+                              style: TextStyle(
+                                color: AppColors.velvetPale,
+                                fontSize: 14,
+                              ),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _showAdvancedOptions = true;
+                              });
+                            },
+                          ),
+                        
+                        // RPE input (shown when advanced options are visible)
+                        if (showAdvanced) ...[
+                          TextFormField(
+                            initialValue: rpe?.toString() ?? '',
+                            keyboardType: TextInputType.number,
+                            decoration: InputDecoration(
+                              labelText: 'RPE (optional)',
+                              labelStyle: const TextStyle(color: Colors.white70),
+                              border: const OutlineInputBorder(),
+                              enabledBorder: const OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white30),
+                              ),
+                              hintText: '1-10',
+                              hintStyle: const TextStyle(color: Colors.white30),
+                              suffixIcon: IconButton(
+                                icon: const Icon(
+                                  Icons.help_outline,
+                                  color: Colors.white54,
+                                  size: 18,
+                                ),
+                                onPressed: () {
+                                  _showRPEHelp(context);
+                                },
+                              ),
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                            validator: (value) {
+                              if (value != null && value.isNotEmpty) {
+                                final rpeValue = double.tryParse(value);
+                                if (rpeValue == null) {
+                                  return 'Please enter a valid number';
+                                }
+                                if (rpeValue < 1 || rpeValue > 10) {
+                                  return 'RPE must be between 1 and 10';
+                                }
+                              }
+                              return null;
+                            },
+                            onSaved: (value) {
+                              if (value != null && value.isNotEmpty) {
+                                rpe = double.parse(value);
+                              } else {
+                                rpe = null;
+                              }
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                      ],
+                    );
                   },
                 ),
-                const SizedBox(height: 16),
 
                 // Warmup checkbox
                 SwitchListTile(
@@ -969,6 +1019,47 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
+  int _calculateRestDuration(String exerciseId, dynamic set, ExerciseProvider exerciseProvider) {
+    final exercise = exerciseProvider.getExerciseById(exerciseId);
+    
+    // If it's a warmup set, shorter rest
+    if (set.isWarmup) {
+      return 45; // 45 seconds for warmup sets
+    }
+    
+    // Base rest on exercise category/type
+    if (exercise != null) {
+      final category = exercise.category.toLowerCase();
+      
+      // Compound movements get longer rest
+      if (_isCompoundExercise(category, exercise.name)) {
+        return 120; // 2 minutes for compound movements
+      }
+      
+      // Isolation movements get moderate rest
+      if (_isIsolationExercise(category)) {
+        return 60; // 1 minute for isolation
+      }
+    }
+    
+    // Default rest time
+    return 90; // 90 seconds default
+  }
+  
+  bool _isCompoundExercise(String category, String name) {
+    final compoundKeywords = ['squat', 'deadlift', 'bench', 'press', 'row', 'pull-up', 'chin-up'];
+    final compoundCategories = ['legs', 'back', 'chest'];
+    
+    final nameLower = name.toLowerCase();
+    return compoundKeywords.any((keyword) => nameLower.contains(keyword)) ||
+           compoundCategories.contains(category);
+  }
+  
+  bool _isIsolationExercise(String category) {
+    final isolationCategories = ['arms', 'shoulders', 'calves', 'abs'];
+    return isolationCategories.contains(category);
+  }
+
   void _showPRCelebration(BuildContext context, String exerciseName) {
     if (!_showingPRCelebration) {
       setState(() {
@@ -984,5 +1075,37 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         }
       });
     }
+  }
+  
+  void _showRPEHelp(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.royalVelvet,
+        title: const Text(
+          'What is RPE?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'RPE (Rate of Perceived Exertion) is a scale from 1-10 that measures how difficult a set feels:\\n\\n'
+          '1-3: Very Easy\\n'
+          '4-6: Moderate\\n'
+          '7-8: Hard (2-3 reps left)\\n'
+          '9: Very Hard (1 rep left)\\n'
+          '10: Maximum Effort\\n\\n'
+          'This helps track training intensity and plan progressive overload.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            child: Text(
+              'Got it!',
+              style: TextStyle(color: AppColors.velvetMist),
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
   }
 }

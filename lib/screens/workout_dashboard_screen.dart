@@ -7,6 +7,7 @@ import '../providers/workout_provider.dart';
 import '../widgets/workout_module.dart';
 import '../theme/app_colors.dart';
 import 'workout_start_screen.dart';
+import 'active_workout_screen.dart';
 import 'exercise_browse_screen.dart';
 import 'progression_settings_screen.dart';
 
@@ -70,36 +71,8 @@ class WorkoutDashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Quick action buttons
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  _buildQuickActionButton(
-                    context,
-                    Icons.play_circle_fill_outlined,
-                    'Start Workout',
-                    () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const WorkoutStartScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  _buildQuickActionButton(
-                    context,
-                    Icons.history,
-                    'History',
-                    () {
-                      Navigator.pushNamed(context, '/workout-history');
-                    },
-                  ),
-                ],
-              ),
-            ),
+            // Quick action buttons with enhanced functionality
+            _buildQuickActionSection(context),
 
             // Current workout or workout module
             const WorkoutModule(),
@@ -118,12 +91,84 @@ class WorkoutDashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildQuickActionSection(BuildContext context) {
+    return Consumer<WorkoutProvider>(
+      builder: (context, workoutProvider, _) {
+        return Consumer<SplitProvider>(
+          builder: (context, splitProvider, _) {
+            final splits = splitProvider.splits;
+            final recentSplits = splits.take(3).toList();
+            final currentWorkout = workoutProvider.currentWorkout;
+            
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // Quick action buttons row
+                  Row(
+                    children: [
+                      // Resume workout or start new
+                      currentWorkout != null
+                          ? _buildQuickActionButton(
+                              context,
+                              Icons.play_arrow,
+                              'Resume Workout',
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const ActiveWorkoutScreen(),
+                                  ),
+                                );
+                              },
+                              isHighlighted: true,
+                            )
+                          : _buildQuickActionButton(
+                              context,
+                              Icons.play_circle_fill_outlined,
+                              'Start Workout',
+                              () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const WorkoutStartScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                      const SizedBox(width: 12),
+                      _buildQuickActionButton(
+                        context,
+                        Icons.history,
+                        'History',
+                        () {
+                          Navigator.pushNamed(context, '/workout-history');
+                        },
+                      ),
+                    ],
+                  ),
+                  
+                  // Recently used splits (if no active workout and splits exist)
+                  if (currentWorkout == null && recentSplits.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _buildRecentSplitsSection(context, recentSplits, workoutProvider),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildQuickActionButton(
     BuildContext context,
     IconData icon,
     String label,
-    VoidCallback onTap,
-  ) {
+    VoidCallback onTap, {
+    bool isHighlighted = false,
+  }) {
     return Expanded(
       child: InkWell(
         onTap: onTap,
@@ -131,28 +176,131 @@ class WorkoutDashboardScreen extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: AppColors.royalVelvet,
+            color: isHighlighted ? AppColors.velvetHighlight : AppColors.royalVelvet,
             borderRadius: BorderRadius.circular(12),
+            border: isHighlighted 
+                ? Border.all(color: AppColors.velvetMist.withOpacity(0.3), width: 1)
+                : null,
           ),
           child: Column(
             children: [
               Icon(
                 icon,
-                color: AppColors.velvetMist,
+                color: isHighlighted ? Colors.white : AppColors.velvetMist,
                 size: 32,
               ),
               const SizedBox(height: 8),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Quicksand',
-                  color: Colors.white,
+                  color: isHighlighted ? Colors.white : Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildRecentSplitsSection(BuildContext context, List<dynamic> splits, WorkoutProvider workoutProvider) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.royalVelvet.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Quick Start',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              Text(
+                'Recent Splits',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 12,
+                  color: AppColors.velvetPale,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ...splits.map((split) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: InkWell(
+              onTap: () {
+                // Quick start with first session of this split
+                if (split.sessions.isNotEmpty) {
+                  workoutProvider.startWorkoutFromSplit(split, split.sessions.first).then((_) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ActiveWorkoutScreen(),
+                      ),
+                    );
+                  });
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.deepVelvet.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.fitness_center,
+                      color: AppColors.velvetPale,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        split.name,
+                        style: const TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 14,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${split.sessions.length} sessions',
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 12,
+                        color: AppColors.velvetLight.withOpacity(0.7),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.play_arrow,
+                      color: AppColors.velvetMist,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )).toList(),
+        ],
       ),
     );
   }

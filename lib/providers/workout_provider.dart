@@ -22,6 +22,9 @@ class WorkoutProvider with ChangeNotifier {
   // Progressive overload settings
   Map<String, dynamic>? _progressionSettings;
   bool _isInitialized = false;
+  
+  // Beginner mode setting
+  bool _isBeginnerMode = true;
 
   WorkoutProvider(this._repository) {
     _initSettings();
@@ -40,6 +43,9 @@ class WorkoutProvider with ChangeNotifier {
       if (savedSettings != null) {
         _progressionSettings = Map<String, dynamic>.from(savedSettings);
       }
+      
+      // Load beginner mode setting
+      _isBeginnerMode = box.get('isBeginnerMode', defaultValue: true);
 
       _isInitialized = true;
       notifyListeners();
@@ -56,6 +62,7 @@ class WorkoutProvider with ChangeNotifier {
   int get restTimerSeconds => _restTimerSeconds;
   bool get isRestTimerActive => _isRestTimerActive;
   bool get isInitialized => _isInitialized;
+  bool get isBeginnerMode => _isBeginnerMode;
 
   // Workout initialization methods
 
@@ -441,5 +448,23 @@ class WorkoutProvider with ChangeNotifier {
 
   ActiveWorkout? getWorkoutById(String id) {
     return _repository.getWorkoutById(id);
+  }
+  
+  // Settings management methods
+  Future<void> setBeginnerMode(bool isBeginnerMode) async {
+    _isBeginnerMode = isBeginnerMode;
+    
+    try {
+      if (!Hive.isBoxOpen(_settingsBoxName)) {
+        await Hive.openBox(_settingsBoxName);
+      }
+      
+      final box = Hive.box(_settingsBoxName);
+      await box.put('isBeginnerMode', isBeginnerMode);
+      
+      notifyListeners();
+    } catch (e) {
+      print('Error saving beginner mode setting: $e');
+    }
   }
 }
