@@ -8,6 +8,7 @@ import '../models/progression_settings.dart';
 import '../models/workout_split.dart';
 import '../models/workout_session.dart';
 import '../repositories/workout_repository.dart';
+import '../utils/one_rep_max_calculator.dart';
 
 class WorkoutProvider with ChangeNotifier {
   final WorkoutRepository _repository;
@@ -215,7 +216,7 @@ class WorkoutProvider with ChangeNotifier {
 
   // Progressive Overload methods
 
-  // Check if a set is a personal record
+  // Check if a set is a personal record (using 1RM calculation)
   bool isPersonalRecord(String exerciseId, ExerciseSet set) {
     return _repository.isPersonalRecord(exerciseId, set);
   }
@@ -223,6 +224,26 @@ class WorkoutProvider with ChangeNotifier {
   // Get all personal records for an exercise
   List<PersonalRecord> getPersonalRecordsForExercise(String exerciseId) {
     return _repository.getPersonalRecordsForExercise(exerciseId);
+  }
+
+  // Check if a set would be a new 1RM PR without saving it
+  bool wouldBe1RMPR(String exerciseId, ExerciseSet set) {
+    if (set.isWarmup || !set.completed) return false;
+    
+    final currentOneRM = calculate1RM(set);
+    final currentBest = getBest1RM(exerciseId);
+    
+    if (currentBest == null) return true;
+    if (currentBest.weightUnit != set.weightUnit) return false;
+    
+    const double threshold = 0.5;
+    return currentOneRM.oneRepMax > (currentBest.value + threshold);
+  }
+
+  // Get current 1RM estimate for display purposes
+  double? getCurrentEstimated1RM(String exerciseId) {
+    final best = getBest1RM(exerciseId);
+    return best?.value;
   }
 
   // Get performance trend for an exercise (for charts)
@@ -428,6 +449,20 @@ class WorkoutProvider with ChangeNotifier {
 
   ExerciseSet? getBestSet(String exerciseId) {
     return _repository.getBestSet(exerciseId);
+  }
+
+  // Get the best 1RM record for an exercise
+  PersonalRecord? getBest1RM(String exerciseId) {
+    return _repository.getBest1RM(exerciseId);
+  }
+
+  // Get the estimated 1RM for a set
+  OneRepMaxResult calculate1RM(ExerciseSet set) {
+    return OneRepMaxCalculator.calculate(
+      weight: set.weight,
+      reps: set.reps,
+      weightUnit: set.weightUnit,
+    );
   }
 
   // Workout history

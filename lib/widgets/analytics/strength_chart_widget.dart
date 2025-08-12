@@ -1,4 +1,5 @@
 // lib/widgets/analytics/strength_chart_widget.dart
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
@@ -27,9 +28,7 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
     final exerciseName = selectedExercise['exerciseName'] as String;
     final performances = selectedExercise['performances'] as List<Map<String, dynamic>>;
 
-    // Calculate progress percentage
-    final percentIncrease = selectedExercise['percentIncrease'] as double;
-    final isPositive = percentIncrease >= 0;
+    // Remove progress percentage calculation
 
     return Container(
       decoration: BoxDecoration(
@@ -40,69 +39,78 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Exercise selector and progress indicator
-          Row(
+          // Clean header with exercise name
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: _selectedExerciseIndex,
-                    isDense: true,
-                    dropdownColor: AppColors.deepVelvet,
-                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                    items: widget.strengthProgressData!.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final exercise = entry.value;
-                      return DropdownMenuItem<int>(
-                        value: index,
-                        child: Text(
-                          exercise['exerciseName'] as String,
-                          style: const TextStyle(
-                            fontFamily: 'Quicksand',
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                    onChanged: (index) {
-                      if (index != null) {
+              Text(
+                'Strength Progress',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white.withOpacity(0.9),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                exerciseName,
+                style: const TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Horizontal scrollable exercise selection chips
+          SizedBox(
+            height: 40,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: widget.strengthProgressData!.length,
+              itemBuilder: (context, index) {
+                final exercise = widget.strengthProgressData![index];
+                final isSelected = index == _selectedExerciseIndex;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text(
+                      exercise['exerciseName'] as String,
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.white : Colors.white.withOpacity(0.8),
+                      ),
+                    ),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
                         setState(() {
                           _selectedExerciseIndex = index;
                         });
                       }
                     },
+                    backgroundColor: AppColors.deepVelvet.withOpacity(0.5),
+                    selectedColor: AppColors.velvetPale.withOpacity(0.3),
+                    checkmarkColor: Colors.white,
+                    side: BorderSide(
+                      color: isSelected ? AppColors.velvetPale : Colors.white30,
+                      width: 1,
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isPositive ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isPositive ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: isPositive ? Colors.green : Colors.red,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${percentIncrease.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontFamily: 'Quicksand',
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isPositive ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                );
+              },
+            ),
           ),
 
           const SizedBox(height: 8),
@@ -218,32 +226,42 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
   }
 
   Widget _buildLineChart(List<Map<String, dynamic>> performances) {
-    // Extract data points
-    final spots = performances.asMap().entries.map((entry) {
+    // Sort performances by date to ensure chronological order (earliest to latest)
+    final sortedPerformances = List<Map<String, dynamic>>.from(performances);
+    sortedPerformances.sort((a, b) {
+      final dateA = a['date'] as DateTime;
+      final dateB = b['date'] as DateTime;
+      return dateA.compareTo(dateB); // Ascending order: earliest dates on left
+    });
+    
+    // Extract data points with chronologically sorted data
+    final spots = sortedPerformances.asMap().entries.map((entry) {
       final index = entry.key.toDouble();
       final performance = entry.value;
       return FlSpot(index, performance['weight']);
     }).toList();
 
     // Find min and max values for y-axis
-    double minY = spots.map((spot) => spot.y).reduce(
+    double dataMinY = spots.map((spot) => spot.y).reduce(
           (min, value) => value < min ? value : min,
         );
-    double maxY = spots.map((spot) => spot.y).reduce(
+    double dataMaxY = spots.map((spot) => spot.y).reduce(
           (max, value) => value > max ? value : max,
         );
 
-    // Add some padding to the y-axis range
-    final yPadding = (maxY - minY) * 0.1;
-    minY = minY > yPadding ? minY - yPadding : 0;
-    maxY = maxY + yPadding;
+    // Calculate appropriate interval first
+    final interval = _calculateYAxisInterval(dataMinY, dataMaxY);
+    
+    // Align min and max to nice intervals
+    final minY = (dataMinY / interval).floor() * interval;
+    final maxY = (dataMaxY / interval).ceil() * interval;
 
     return LineChart(
       LineChartData(
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: 5,
+          horizontalInterval: _calculateYAxisInterval(minY, maxY),
           getDrawingHorizontalLine: (value) {
             return FlLine(
               color: Colors.white.withOpacity(0.1),
@@ -257,17 +275,17 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
               showTitles: true,
               reservedSize: 30,
               getTitlesWidget: (value, meta) {
-                if (value.toInt() >= performances.length || value.toInt() < 0) {
+                if (value.toInt() >= sortedPerformances.length || value.toInt() < 0) {
                   return const SizedBox.shrink();
                 }
 
                 // Show date for some data points
-                if (performances.length < 5 ||
+                if (sortedPerformances.length < 5 ||
                     value.toInt() == 0 ||
-                    value.toInt() == performances.length - 1 ||
-                    value.toInt() % (performances.length ~/ 3) == 0) {
+                    value.toInt() == sortedPerformances.length - 1 ||
+                    value.toInt() % (sortedPerformances.length ~/ 3) == 0) {
 
-                  final date = performances[value.toInt()]['date'] as DateTime;
+                  final date = sortedPerformances[value.toInt()]['date'] as DateTime;
                   final dateStr = DateFormat('MM/dd').format(date);
 
                   return Padding(
@@ -291,6 +309,7 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
+              interval: _calculateYAxisInterval(minY, maxY),
               getTitlesWidget: (value, meta) {
                 return Padding(
                   padding: const EdgeInsets.only(right: 8.0),
@@ -317,7 +336,7 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
           show: false,
         ),
         minX: 0,
-        maxX: (performances.length - 1).toDouble(),
+        maxX: (sortedPerformances.length - 1).toDouble(),
         minY: minY,
         maxY: maxY,
         lineBarsData: [
@@ -332,7 +351,7 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
               show: true,
               getDotPainter: (spot, percent, barData, index) {
                 // Highlight first and last dots
-                final isFirstOrLast = index == 0 || index == performances.length - 1;
+                final isFirstOrLast = index == 0 || index == sortedPerformances.length - 1;
 
                 return FlDotCirclePainter(
                   radius: isFirstOrLast ? 4 : 3,
@@ -355,7 +374,7 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
             tooltipPadding: const EdgeInsets.all(8),
             getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
               return touchedBarSpots.map((barSpot) {
-                final performance = performances[barSpot.x.toInt()];
+                final performance = sortedPerformances[barSpot.x.toInt()];
                 final date = performance['date'] as DateTime;
                 final weight = performance['weight'];
                 final reps = performance['reps'];
@@ -387,5 +406,38 @@ class _StrengthChartWidgetState extends State<StrengthChartWidget> {
         ),
       ),
     );
+  }
+
+  // Calculate appropriate Y-axis interval for better spacing
+  double _calculateYAxisInterval(double minY, double maxY) {
+    final range = maxY - minY;
+    
+    if (range <= 0) return 1.0; // Default fallback
+    
+    // Target around 4-6 evenly spaced intervals
+    final targetIntervals = 5;
+    final rawInterval = range / targetIntervals;
+    
+    // Find the power of 10 for the raw interval
+    final magnitude = (rawInterval).abs();
+    final power = (magnitude > 0) ? (math.log(magnitude) / math.log(10)).floor() : 0;
+    final base = math.pow(10.0, power.toDouble()).toDouble();
+    
+    // Normalize to 1-10 range
+    final normalized = magnitude / base;
+    
+    // Choose nice interval values
+    double niceInterval;
+    if (normalized <= 1.0) {
+      niceInterval = 1.0;
+    } else if (normalized <= 2.0) {
+      niceInterval = 2.0;
+    } else if (normalized <= 5.0) {
+      niceInterval = 5.0;
+    } else {
+      niceInterval = 10.0;
+    }
+    
+    return niceInterval * base;
   }
 }

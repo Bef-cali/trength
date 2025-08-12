@@ -5,11 +5,19 @@ import '../theme/app_colors.dart';
 class PersonalRecordCelebration extends StatefulWidget {
   final VoidCallback onClose;
   final String? exerciseName;
+  final double? oneRM;
+  final String? formula;
+  final double? originalWeight;
+  final int? originalReps;
 
   const PersonalRecordCelebration({
     Key? key,
     required this.onClose,
     this.exerciseName,
+    this.oneRM,
+    this.formula,
+    this.originalWeight,
+    this.originalReps,
   }) : super(key: key);
 
   @override
@@ -164,7 +172,7 @@ class _PersonalRecordCelebrationState extends State<PersonalRecordCelebration>
 
           // Personal Record text
           const Text(
-            'NEW PERSONAL RECORD!',
+            'NEW 1-REP MAX PR!',
             style: TextStyle(
               color: Colors.white,
               fontSize: 20,
@@ -191,6 +199,60 @@ class _PersonalRecordCelebrationState extends State<PersonalRecordCelebration>
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // 1RM details if provided
+          if (widget.oneRM != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.deepVelvet.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.velvetMist.withOpacity(0.3)),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '${widget.oneRM!.toStringAsFixed(1)}kg',
+                    style: const TextStyle(
+                      color: AppColors.velvetMist,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Est. 1-Rep Max',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (widget.originalWeight != null && widget.originalReps != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'from ${widget.originalWeight!.toStringAsFixed(1)}kg × ${widget.originalReps} reps',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                  if (widget.formula != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${widget.formula!.toUpperCase()} formula',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 10,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 12),

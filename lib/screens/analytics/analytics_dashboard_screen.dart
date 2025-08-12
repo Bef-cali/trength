@@ -5,9 +5,9 @@ import 'package:intl/intl.dart';
 import '../../providers/workout_provider.dart';
 import '../../providers/exercise_provider.dart';
 import '../../theme/app_colors.dart';
-import '../../widgets/analytics/volume_chart_widget.dart';
 import '../../widgets/analytics/strength_chart_widget.dart';
 import '../../widgets/analytics/pr_timeline_widget.dart';
+import '../../utils/one_rep_max_calculator.dart';
 
 class AnalyticsDashboardScreen extends StatefulWidget {
   const AnalyticsDashboardScreen({Key? key}) : super(key: key);
@@ -188,23 +188,13 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
                 const Divider(color: Colors.white24, height: 1),
                 const SizedBox(height: 24),
 
-                // Volume by Muscle Group
-                _buildSectionHeader('Volume by Muscle Group'),
+                // Strength Progress - moved to top priority
+                _buildSectionHeader('Strength Progress'),
                 Container(
-                  height: 300,
+                  height: 300, // Increased height since it's the main focus
                   margin: const EdgeInsets.only(top: 12, bottom: 24),
-                  child: VolumeChartWidget(
-                    muscleGroupVolume: analyticsData['muscleGroupVolume'] as Map<String, double>?,
-                  ),
-                ),
-
-                // Recent PRs
-                _buildSectionHeader('Recent Personal Records'),
-                Container(
-                  height: 200,
-                  margin: const EdgeInsets.only(top: 12, bottom: 24),
-                  child: PRTimelineWidget(
-                    personalRecords: analyticsData['recentPRs'] as List<Map<String, dynamic>>?,
+                  child: StrengthChartWidget(
+                    strengthProgressData: analyticsData['strengthProgress'] as List<Map<String, dynamic>>?,
                   ),
                 ),
 
@@ -212,19 +202,15 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
                 const Divider(color: Colors.white24, height: 1),
                 const SizedBox(height: 24),
 
-                // Top exercises by strength progress
-                _buildSectionHeader('Strength Progress'),
+                // Personal Records
+                _buildSectionHeader('Personal Records'),
                 Container(
-                  height: 250,
+                  height: 250, // Increased height for better card layout
                   margin: const EdgeInsets.only(top: 12, bottom: 24),
-                  child: StrengthChartWidget(
-                    strengthProgressData: analyticsData['strengthProgress'] as List<Map<String, dynamic>>?,
+                  child: PRTimelineWidget(
+                    personalRecords: analyticsData['recentPRs'] as List<Map<String, dynamic>>?,
                   ),
                 ),
-
-                // Workout frequency
-                _buildSectionHeader('Workout Frequency'),
-                _buildFrequencyCard(analyticsData),
 
                 const SizedBox(height: 16),
               ],
@@ -512,13 +498,25 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
           return weightComp;
         });
 
-        // Add top performance as a PR
+        // Add top performance as a PR with calculated 1RM
         final bestPerformance = performances.first;
+        final weight = bestPerformance['weight'] ?? 0;
+        final reps = bestPerformance['reps'] ?? 0;
+        
+        // Calculate 1RM for this performance
+        final oneRMResult = OneRepMaxCalculator.calculate(
+          weight: weight is int ? weight.toDouble() : weight as double,
+          reps: reps is double ? reps.toInt() : reps as int,
+          weightUnit: 'kg', // Assuming kg for now
+        );
+        
         recentPRs.add({
           'exerciseId': exerciseId,
           'exerciseName': exercise.name,
-          'weight': bestPerformance['weight'] ?? 0,
-          'reps': bestPerformance['reps'] ?? 0,
+          'weight': weight,
+          'reps': reps,
+          'oneRM': oneRMResult.oneRepMax,
+          'formula': oneRMResult.formulaName,
           'date': bestPerformance['date'] ?? DateTime.now(),
         });
       });
@@ -627,49 +625,53 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 16,
       mainAxisSpacing: 16,
-      childAspectRatio: 1.5,
+      childAspectRatio: 1.4, // Slightly taller for better proportions
       children: [
-        _buildSummaryCard(
+        _buildEnhancedSummaryCard(
           'Total Workouts',
           totalWorkouts.toString(),
           Icons.fitness_center,
         ),
-        _buildSummaryCard(
+        _buildEnhancedSummaryCard(
           'Total Volume',
-          '${totalVolume.toStringAsFixed(0)} kg',
+          '${totalVolume.toStringAsFixed(0)}kg',
           Icons.bar_chart,
         ),
-        _buildSummaryCard(
+        _buildEnhancedSummaryCard(
           'Exercises Used',
           exercisesUsed.toString(),
           Icons.sports_gymnastics,
         ),
-        _buildSummaryCard(
+        _buildEnhancedSummaryCard(
           'Avg Duration',
           avgDuration != null
-              ? '${avgDuration.inMinutes} min'
-              : '0 min',
+              ? '${avgDuration.inMinutes}min'
+              : '0min',
           Icons.timer,
         ),
       ],
     );
   }
 
-  Widget _buildSummaryCard(String title, String value, IconData icon) {
+  Widget _buildEnhancedSummaryCard(
+    String title,
+    String value,
+    IconData icon,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.royalVelvet,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.white10),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowBlack.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -677,8 +679,9 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
           Icon(
             icon,
             color: AppColors.velvetPale,
-            size: 28,
+            size: 32,
           ),
+          const SizedBox(height: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -686,16 +689,19 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
                 value,
                 style: const TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: 22,
+                  fontSize: 26,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
+                  letterSpacing: -0.5,
                 ),
               ),
+              const SizedBox(height: 4),
               Text(
                 title,
                 style: TextStyle(
                   fontFamily: 'Quicksand',
                   fontSize: 14,
+                  fontWeight: FontWeight.w600,
                   color: Colors.white.withOpacity(0.7),
                 ),
               ),
@@ -706,119 +712,7 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
     );
   }
 
-  Widget _buildFrequencyCard(Map<String, dynamic> data) {
-    final dayFrequency = data['dayFrequency'] as Map<String, int>?;
-    if (dayFrequency == null || dayFrequency.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    // Find max value safely
-    int maxValue = 0;
-    dayFrequency.values.forEach((v) {
-      if (v > maxValue) maxValue = v;
-    });
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.royalVelvet,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowBlack.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Workouts by Day',
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Text(
-                _getTimeRangeText(),
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 12,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
-            ],
-          ),
-          const Divider(color: Colors.white24, height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              for (final day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
-                _buildDayFrequencyBar(
-                  day.substring(0, 1),
-                  maxValue > 0 ? 100 * (dayFrequency[day]! / maxValue) : 0.0,
-                  dayFrequency[day] ?? 0
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDayFrequencyBar(String day, double height, int count) {
-    return Column(
-      children: [
-        Text(
-          count.toString(),
-          style: TextStyle(
-            fontFamily: 'Quicksand',
-            fontSize: 12,
-            color: Colors.white.withOpacity(0.7),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          width: 24,
-          height: 100,
-          decoration: BoxDecoration(
-            color: AppColors.velvetHighlight.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: Colors.white12),
-          ),
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            width: 24,
-            height: height,
-            decoration: BoxDecoration(
-              color: AppColors.velvetPale,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(2),
-                bottom: Radius.circular(2),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          day,
-          style: const TextStyle(
-            fontFamily: 'Quicksand',
-            fontSize: 12,
-            color: Colors.white,
-          ),
-        ),
-      ],
-    );
-  }
+  // Removed _buildFrequencyCard and _buildDayFrequencyBar methods
 
   String _getDayName(int weekday) {
     switch (weekday) {

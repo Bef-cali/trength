@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/active_workout.dart';
 import '../models/exercise_set.dart';
 import '../models/personal_record.dart';
+import '../utils/one_rep_max_calculator.dart';
 
 class WorkoutRepository {
   static const String _activeWorkoutBoxName = 'active_workouts';
@@ -237,28 +238,48 @@ class WorkoutRepository {
 
   // Check if a set is a personal record
   bool isPersonalRecord(String exerciseId, ExerciseSet set) {
-    final bestSet = getBestSet(exerciseId);
-    if (bestSet == null) return true; // First time is always a PR
+    // Skip warmup sets and incomplete sets
+    if (set.isWarmup || !set.completed) return false;
+
+    // Calculate 1RM for this set
+    final currentOneRM = OneRepMaxCalculator.calculate(
+      weight: set.weight,
+      reps: set.reps,
+      weightUnit: set.weightUnit,
+    );
+
+    // Get the current best 1RM for this exercise
+    final currentBest1RM = getBest1RM(exerciseId);
+    
+    // If no previous record, this is a PR
+    if (currentBest1RM == null) return true;
 
     // Can't compare different units
-    if (bestSet.weightUnit != set.weightUnit) return false;
+    if (currentBest1RM.weightUnit != set.weightUnit) return false;
 
-    // Check if this set has a higher weight with at least the same reps
-    if (set.weight > bestSet.weight && set.reps >= bestSet.reps) {
-      return true;
+    // Compare 1RM values - must be significantly better (avoid tiny differences)
+    const double threshold = 0.5; // 0.5kg/lbs minimum improvement
+    return currentOneRM.oneRepMax > (currentBest1RM.value + threshold);
+  }
+
+  // Get the best 1RM record for an exercise
+  PersonalRecord? getBest1RM(String exerciseId) {
+    final records = getPersonalRecordsForExercise(exerciseId);
+    if (records.isEmpty) return null;
+
+    // Find the highest 1RM (considering both new 1RM records and legacy records)
+    PersonalRecord? best;
+    double highestOneRM = 0;
+
+    for (final record in records) {
+      final oneRMValue = record.oneRepMaxValue; // This handles both 1RM and legacy records
+      if (oneRMValue > highestOneRM) {
+        highestOneRM = oneRMValue;
+        best = record;
+      }
     }
 
-    // Check if this set has the same weight but more reps
-    if (set.weight == bestSet.weight && set.reps > bestSet.reps) {
-      return true;
-    }
-
-    // Check if this set has a higher volume
-    if (set.weight * set.reps > bestSet.weight * bestSet.reps) {
-      return true;
-    }
-
-    return false;
+    return best;
   }
 
   // Get suggested weight/reps for progressive overload
@@ -425,80 +446,71 @@ class WorkoutRepository {
   // Personal Records Management
 
   Future<void> _checkAndUpdatePersonalRecords(ActiveWorkout workout) async {
+    // Track exercises that have already had PRs recorded for this workout
+    // to avoid duplicate PRs for the same exercise on the same day
+    final processedExercises = <String>{};
+
     // Iterate through each exercise in the workout
     for (var entry in workout.exerciseSets.entries) {
       final exerciseId = entry.key;
       final sets = entry.value;
 
-      if (sets.isEmpty) continue;
+      if (sets.isEmpty || processedExercises.contains(exerciseId)) continue;
 
       // Skip warmup sets and only consider completed sets
       final workingSets = sets.where((s) => !s.isWarmup && s.completed).toList();
       if (workingSets.isEmpty) continue;
 
-      // Check for weight PR
-      final weightPR = _getPersonalRecord(exerciseId, 'weight');
-      final bestSetByWeight = workingSets.reduce((a, b) {
-        if (a.weight > b.weight) return a;
-        if (a.weight < b.weight) return b;
-        // If weights are equal, choose the one with more reps
-        return a.reps > b.reps ? a : b;
-      });
+      // Find the set with the highest estimated 1RM
+      ExerciseSet? bestSet;
+      double highestOneRM = 0;
 
-      // If no PR exists or this set is better, save it
-      if (weightPR == null ||
-          bestSetByWeight.weight > weightPR.value ||
-          (bestSetByWeight.weight == weightPR.value &&
-           bestSetByWeight.reps > (weightPR.reps ?? 0))) {
-        await _savePersonalRecord(
-          exerciseId: exerciseId,
-          type: 'weight',
-          value: bestSetByWeight.weight,
-          reps: bestSetByWeight.reps,
-          date: workout.startTime,
-          workoutId: workout.id,
+      for (final set in workingSets) {
+        final oneRMResult = OneRepMaxCalculator.calculate(
+          weight: set.weight,
+          reps: set.reps,
+          weightUnit: set.weightUnit,
         );
+
+        if (oneRMResult.oneRepMax > highestOneRM) {
+          highestOneRM = oneRMResult.oneRepMax;
+          bestSet = set;
+        }
       }
 
-      // Check for reps PR
-      final repsPR = _getPersonalRecord(exerciseId, 'reps');
-      final bestSetByReps = workingSets.reduce((a, b) => a.reps > b.reps ? a : b);
+      if (bestSet == null) continue;
 
-      // If no PR exists or this set has more reps, save it
-      if (repsPR == null || bestSetByReps.reps > repsPR.value.toInt()) {
-        await _savePersonalRecord(
+      // Check if this is a new 1RM PR
+      if (isPersonalRecord(exerciseId, bestSet)) {
+        await _save1RMPR(
           exerciseId: exerciseId,
-          type: 'reps',
-          value: bestSetByReps.reps.toDouble(),
-          weight: bestSetByReps.weight,
+          set: bestSet,
           date: workout.startTime,
           workoutId: workout.id,
         );
-      }
-
-      // Check for volume PR
-      final volumePR = _getPersonalRecord(exerciseId, 'volume');
-      final bestSetByVolume = workingSets.reduce((a, b) {
-        final aVolume = a.weight * a.reps;
-        final bVolume = b.weight * b.reps;
-        return aVolume > bVolume ? a : b;
-      });
-
-      final bestVolume = bestSetByVolume.weight * bestSetByVolume.reps;
-
-      // If no PR exists or this set has more volume, save it
-      if (volumePR == null || bestVolume > volumePR.value) {
-        await _savePersonalRecord(
-          exerciseId: exerciseId,
-          type: 'volume',
-          value: bestVolume,
-          weight: bestSetByVolume.weight,
-          reps: bestSetByVolume.reps,
-          date: workout.startTime,
-          workoutId: workout.id,
-        );
+        
+        processedExercises.add(exerciseId);
       }
     }
+  }
+
+  // Helper method to save a 1RM personal record
+  Future<void> _save1RMPR({
+    required String exerciseId,
+    required ExerciseSet set,
+    required DateTime date,
+    required String workoutId,
+  }) async {
+    final pr = PersonalRecord.oneRMPR(
+      exerciseId: exerciseId,
+      weight: set.weight,
+      reps: set.reps,
+      weightUnit: set.weightUnit,
+      date: date,
+      workoutId: workoutId,
+    );
+
+    await _personalRecordsBox.put(pr.id, pr);
   }
 
   PersonalRecord? _getPersonalRecord(String exerciseId, String type) {

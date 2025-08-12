@@ -1,7 +1,6 @@
 // lib/screens/active_workout_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/active_workout.dart';
 import '../models/exercise_set.dart';
 import '../providers/workout_provider.dart';
 import '../providers/exercise_provider.dart';
@@ -23,6 +22,11 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   String? expandedExerciseId;
   // Track if PR celebration is showing
   bool _showingPRCelebration = false;
+  String? _prExerciseName;
+  double? _prOneRM;
+  String? _prFormula;
+  double? _prOriginalWeight;
+  int? _prOriginalReps;
   // Track if advanced options are shown in beginner mode
   bool _showAdvancedOptions = false;
 
@@ -162,8 +166,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                 // Sets (only visible when expanded)
                                 if (isExpanded) ...[
                                   const Divider(height: 1, color: Colors.white24),
-                                  // Get previous performance data for this exercise
-                                  _buildPreviousPerformanceSection(
+                                  // Compact performance hint
+                                  _buildCompactPerformanceHint(
                                     workoutProvider,
                                     exerciseId
                                   ),
@@ -207,7 +211,7 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                               // Check if this set is a PR after completion
                                               if (!set.isWarmup &&
                                                 workoutProvider.isPersonalRecord(exerciseId, set)) {
-                                                _showPRCelebration(context, exercise.name);
+                                                _showPRCelebration(context, exercise.name, set);
                                               }
                                             }
                                           },
@@ -223,32 +227,61 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                       },
                                     ),
 
-                                  // Add set button (only for expanded exercise)
+                                  // Compact progression suggestion (if available)
+                                  Consumer<WorkoutProvider>(
+                                    builder: (context, workoutProvider, _) {
+                                      final suggestion = workoutProvider.getSuggestedProgression(exerciseId);
+                                      final plateauCheck = workoutProvider.checkForPlateauAndSuggestDeload(exerciseId);
+                                      final isPlateaued = plateauCheck['isPlateaued'] as bool? ?? false;
+                                      
+                                      if (suggestion.isNotEmpty) {
+                                        return Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          child: ProgressionSuggestionChip(
+                                            exerciseId: exerciseId,
+                                            suggestion: isPlateaued 
+                                                ? plateauCheck['deloadSuggestion'] as Map<String, dynamic>
+                                                : suggestion,
+                                            isDeload: isPlateaued,
+                                            onApply: (newSet) {
+                                              workoutProvider.addSet(exerciseId, newSet);
+                                            },
+                                          ),
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+
+                                  // Add set button (more compact)
                                   Padding(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), // Less vertical padding
                                     child: Row(
                                       children: [
                                         Expanded(
                                           child: ElevatedButton.icon(
-                                            icon: const Icon(Icons.add),
-                                            label: const Text('Add Set'),
+                                            icon: const Icon(Icons.add, size: 18),
+                                            label: const Text('Add Set', style: TextStyle(fontSize: 14)),
                                             style: ElevatedButton.styleFrom(
                                               backgroundColor: AppColors.velvetHighlight,
                                               foregroundColor: Colors.white,
-                                              minimumSize: const Size.fromHeight(50),
+                                              minimumSize: const Size.fromHeight(42), // Reduced height
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
                                             ),
-                                            onPressed: () => _showAddSetDialog(
-                                              context, workoutProvider, exerciseId),
+                                            onPressed: () => _addEmptySet(workoutProvider, exerciseId),
                                           ),
                                         ),
-                                        if (sets.isNotEmpty)
+                                        if (sets.isNotEmpty) ...[
+                                          const SizedBox(width: 8),
                                           IconButton(
-                                            icon: const Icon(Icons.content_copy, color: Colors.white70),
-                                            onPressed: () {
-                                              workoutProvider.duplicateLatestSet(exerciseId);
-                                            },
+                                            icon: const Icon(Icons.content_copy, color: Colors.white70, size: 20),
+                                            onPressed: () => workoutProvider.duplicateLatestSet(exerciseId),
                                             tooltip: 'Duplicate Last Set',
+                                            visualDensity: VisualDensity.compact,
                                           ),
+                                        ],
                                       ],
                                     ),
                                   ),
@@ -268,104 +301,63 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
               onClose: () {
                 setState(() {
                   _showingPRCelebration = false;
+                  _prExerciseName = null;
+                  _prOneRM = null;
+                  _prFormula = null;
+                  _prOriginalWeight = null;
+                  _prOriginalReps = null;
                 });
               },
+              exerciseName: _prExerciseName,
+              oneRM: _prOneRM,
+              formula: _prFormula,
+              originalWeight: _prOriginalWeight,
+              originalReps: _prOriginalReps,
             ),
         ],
       ),
     );
   }
 
-  Widget _buildPreviousPerformanceSection(
+  Widget _buildCompactPerformanceHint(
       WorkoutProvider workoutProvider, String exerciseId) {
     final previousSets = workoutProvider.getPreviousSets(exerciseId);
     final bestSet = workoutProvider.getBestSet(exerciseId);
 
-    // Get progression suggestion
-    final suggestion = workoutProvider.getSuggestedProgression(exerciseId);
-
-    // Check for plateaus
-    final plateauCheck = workoutProvider.checkForPlateauAndSuggestDeload(exerciseId);
-    final isPlateaued = plateauCheck['isPlateaued'] as bool? ?? false;
+    // Only show if we have previous data
+    if (previousSets.isEmpty && bestSet == null) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
-      padding: const EdgeInsets.all(12),
-      color: AppColors.velvetHighlight.withOpacity(0.3),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
         children: [
-          const Text(
-            'Previous Performance',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+          // Last performance
+          if (previousSets.isNotEmpty) ...[
+            Icon(Icons.history, color: Colors.white54, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              'Last: ${previousSets.first.weight}${previousSets.first.weightUnit} × ${previousSets.first.reps}',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              // Last workout
-              if (previousSets.isNotEmpty)
-                Expanded(
-                  child: _buildPreviousPerformanceCard(
-                    previousSets.first,
-                    'Latest',
-                  ),
-                ),
-              const SizedBox(width: 8),
-              // Personal best
-              if (bestSet != null)
-                Expanded(
-                  child: _buildPreviousPerformanceCard(
-                    bestSet,
-                    'PR',
-                    isPR: true,
-                  ),
-                ),
-            ],
-          ),
-
-          // Progression suggestion section
-          if (suggestion.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                const Text(
-                  'Suggested Next Set',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (isPlateaued)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orangeAccent.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'Plateau Detected',
-                      style: TextStyle(
-                        color: Colors.orangeAccent,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-              ],
+          ],
+          
+          if (previousSets.isNotEmpty && bestSet != null)
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              width: 1,
+              height: 12,
+              color: Colors.white24,
             ),
-            const SizedBox(height: 8),
-            ProgressionSuggestionChip(
-              exerciseId: exerciseId,
-              suggestion: isPlateaued
-                  ? plateauCheck['deloadSuggestion'] as Map<String, dynamic>
-                  : suggestion,
-              isDeload: isPlateaued,
-              onApply: (ExerciseSet newSet) {
-                workoutProvider.addSet(exerciseId, newSet);
-              },
+            
+          // Personal best
+          if (bestSet != null) ...[
+            Icon(Icons.emoji_events, color: AppColors.velvetMist, size: 14),
+            const SizedBox(width: 4),
+            Text(
+              'PR: ${bestSet.weight}${bestSet.weightUnit} × ${bestSet.reps}',
+              style: TextStyle(color: AppColors.velvetMist, fontSize: 12),
             ),
           ],
         ],
@@ -373,65 +365,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
-  Widget _buildPreviousPerformanceCard(ExerciseSet set, String label, {bool isPR = false}) {
-    final backgroundColor = isPR
-        ? AppColors.velvetPale.withOpacity(0.2)
-        : AppColors.velvetHighlight.withOpacity(0.2);
-
-    final labelColor = isPR
-        ? AppColors.velvetMist
-        : Colors.white70;
-
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: labelColor,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                '${set.weight} ${set.weightUnit}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '× ${set.reps} reps',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          if (set.rpe != null)
-            Text(
-              'RPE: ${set.rpe}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildEmptyWorkoutView(
     BuildContext context,
@@ -1060,21 +993,44 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     return isolationCategories.contains(category);
   }
 
-  void _showPRCelebration(BuildContext context, String exerciseName) {
+  void _showPRCelebration(BuildContext context, String exerciseName, ExerciseSet set) {
     if (!_showingPRCelebration) {
+      // Calculate 1RM details for the celebration
+      final oneRMResult = context.read<WorkoutProvider>().calculate1RM(set);
+      
       setState(() {
         _showingPRCelebration = true;
+        _prExerciseName = exerciseName;
+        _prOneRM = oneRMResult.oneRepMax;
+        _prFormula = oneRMResult.formulaName;
+        _prOriginalWeight = set.weight;
+        _prOriginalReps = set.reps;
       });
 
       // Automatically dismiss the celebration after a few seconds
-      Future.delayed(const Duration(seconds: 3), () {
+      Future.delayed(const Duration(seconds: 4), () {
         if (mounted && _showingPRCelebration) {
           setState(() {
             _showingPRCelebration = false;
+            _prExerciseName = null;
+            _prOneRM = null;
+            _prFormula = null;
+            _prOriginalWeight = null;
+            _prOriginalReps = null;
           });
         }
       });
     }
+  }
+  
+  // Add an empty set that user can fill in with inline editing
+  void _addEmptySet(WorkoutProvider workoutProvider, String exerciseId) {
+    final newSet = ExerciseSet(
+      weight: 0, // Start with 0, user will edit inline
+      reps: 0,   // Start with 0, user will edit inline
+      rpe: null, // Optional RPE
+    );
+    workoutProvider.addSet(exerciseId, newSet);
   }
   
   void _showRPEHelp(BuildContext context) {

@@ -30,22 +30,48 @@ class PRTimelineWidget extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Recent Personal Records',
-            style: TextStyle(
-              fontFamily: 'Quicksand',
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Personal Records',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.velvetMist.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${recentPRs.length} records',
+                  style: TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.velvetMist,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Expanded(
-            child: ListView.builder(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 1,
+                childAspectRatio: 4.5,
+                mainAxisSpacing: 12,
+              ),
               itemCount: recentPRs.length,
               itemBuilder: (context, index) {
                 final pr = recentPRs[index];
-                return _buildPRItem(pr, index == recentPRs.length - 1);
+                return _buildPRCard(pr);
               },
             ),
           ),
@@ -96,96 +122,126 @@ class PRTimelineWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildPRItem(Map<String, dynamic> pr, bool isLast) {
+  Widget _buildPRCard(Map<String, dynamic> pr) {
     final date = pr['date'] as DateTime;
     final exerciseName = pr['exerciseName'] as String;
     final weight = pr['weight'];
     final reps = pr['reps'];
+    final oneRM = pr['oneRM'] as double?; // New 1RM value
 
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Timeline indicator and line
-          Column(
-            children: [
-              Container(
-                width: 20,
-                height: 20,
-                decoration: BoxDecoration(
-                  color: AppColors.velvetMist,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.emoji_events,
-                  color: Colors.white,
-                  size: 12,
-                ),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: Colors.white.withOpacity(0.1),
-                  ),
-                ),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.deepVelvet.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.velvetMist.withOpacity(0.3),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.shadowBlack.withOpacity(0.2),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           ),
-          const SizedBox(width: 12),
+        ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // PR icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.velvetMist.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.emoji_events,
+              color: AppColors.velvetMist,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
 
-          // PR details
+          // Exercise details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Date
                 Text(
-                  DateFormat('MMMM d, y').format(date),
+                  exerciseName,
+                  style: const TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('MMM d, y').format(date),
                   style: TextStyle(
                     fontFamily: 'Quicksand',
                     fontSize: 12,
                     color: Colors.white.withOpacity(0.7),
                   ),
                 ),
-                const SizedBox(height: 4),
-
-                // Exercise and achievement
-                Text(
-                  exerciseName,
-                  style: const TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                Text(
-                  '$weight kg × $reps reps',
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 14,
-                    color: AppColors.velvetPale,
-                  ),
-                ),
-
-                // Spacing before next item
-                if (!isLast) const SizedBox(height: 16),
               ],
             ),
           ),
+
+          // 1RM and original performance
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                oneRM != null ? '${oneRM!.toStringAsFixed(1)}kg' : '${weight}kg',
+                style: const TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.velvetMist,
+                ),
+              ),
+              Text(
+                oneRM != null ? 'Est. 1RM' : '× $reps reps',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 10,
+                  color: Colors.white.withOpacity(0.6),
+                ),
+              ),
+              if (oneRM != null)
+                Text(
+                  'from ${weight}kg × $reps',
+                  style: TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 9,
+                    color: Colors.white.withOpacity(0.5),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(width: 8),
 
           // PR badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: AppColors.velvetMist.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(4),
+              color: AppColors.velvetMist,
+              borderRadius: BorderRadius.circular(8),
             ),
             child: const Text(
               'PR',
               style: TextStyle(
                 fontFamily: 'Quicksand',
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
