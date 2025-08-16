@@ -24,58 +24,94 @@ class _HomeScreenState extends State<HomeScreen> {
       // App bar removed per request
       body: _buildCurrentScreen(),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.deepVelvet,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadowBlack.withOpacity(0.3),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+        width: double.infinity,
+        color: AppColors.deepVelvet,
+        child: SafeArea(
+          child: Container(
+            height: 60,
+            child: Center(
+              child: Container(
+                width: 300, // Fixed width for centered nav bar
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildNavItem(
+                      icon: Icons.home_outlined,
+                      selectedIcon: Icons.home,
+                      label: 'Home',
+                      index: 0,
+                    ),
+                    _buildNavItem(
+                      icon: Icons.calendar_view_day_outlined,
+                      selectedIcon: Icons.calendar_view_day,
+                      label: 'exercises',
+                      index: 1,
+                    ),
+                    _buildNavItem(
+                      icon: Icons.bar_chart_outlined,
+                      selectedIcon: Icons.bar_chart,
+                      label: 'analytics',
+                      index: 2,
+                    ),
+                    _buildNavItem(
+                      icon: Icons.history_outlined,
+                      selectedIcon: Icons.history,
+                      label: 'history',
+                      index: 3,
+                    ),
+                    _buildNavItem(
+                      icon: Icons.settings_outlined,
+                      selectedIcon: Icons.settings,
+                      label: 'setting',
+                      index: 4,
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          backgroundColor: AppColors.deepVelvet,
-          selectedItemColor: AppColors.velvetMist,
-          unselectedItemColor: AppColors.velvetLight.withOpacity(0.7),
-          type: BottomNavigationBarType.fixed,
-          showSelectedLabels: true,
-          showUnselectedLabels: true,
-          selectedLabelStyle: const TextStyle(
-            fontFamily: 'Quicksand',
-            fontWeight: FontWeight.bold,
-            fontSize: 12,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontFamily: 'Quicksand',
-            fontSize: 12,
-          ),
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home),
-              label: 'Home',
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required int index,
+  }) {
+    final isSelected = _selectedIndex == index;
+    
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? selectedIcon : icon,
+              color: isSelected 
+                  ? Colors.white 
+                  : Colors.white.withOpacity(0.6),
+              size: 24,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_view_day),
-              label: 'Splits',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.history),
-              label: 'History',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.analytics_outlined),
-              label: 'Analytics',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.trending_up),
-              label: 'Progress',
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 12,
+                color: isSelected 
+                    ? Colors.white 
+                    : Colors.white.withOpacity(0.6),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
           ],
         ),
@@ -86,15 +122,15 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildCurrentScreen() {
     switch (_selectedIndex) {
       case 0:
-        return const WorkoutDashboardScreen(); // Home dashboard with workout module
+        return const WorkoutDashboardScreen(); // Home dashboard
       case 1:
-        return const SplitListScreen(); // Workout splits screen
+        return const ExerciseBrowseScreen(); // Exercise database
       case 2:
-        return const WorkoutHistoryScreen(); // Workout history screen
+        return const AnalyticsDashboardScreen(); // Analytics dashboard
       case 3:
-        return const AnalyticsDashboardScreen(); // Analytics dashboard screen
+        return const WorkoutHistoryScreen(); // Workout history
       case 4:
-        return const ProgressionSettingsScreen(); // Progression settings screen
+        return const ProgressionSettingsScreen(); // Settings
       default:
         return const WorkoutDashboardScreen();
     }
