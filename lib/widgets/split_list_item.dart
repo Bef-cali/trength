@@ -131,9 +131,9 @@ class SplitListItem extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Text(
-                    split.sessions.length == 1
-                        ? '1 Session'
-                        : '${split.sessions.length} Sessions',
+                    split.exercises.length == 1
+                        ? '1 Exercise'
+                        : '${split.exercises.length} Exercises',
                     style: TextStyle(
                       fontFamily: 'Quicksand',
                       fontSize: 14,
@@ -160,33 +160,19 @@ class SplitListItem extends StatelessWidget {
                 ],
               ),
 
-              // Session names summary
-              if (split.sessions.isNotEmpty)
+              // Exercise summary (if needed)
+              if (split.exercises.isNotEmpty && split.description?.isNotEmpty == true)
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: split.sessions.map((session) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.velvetHighlight,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          session.name,
-                          style: const TextStyle(
-                            fontFamily: 'Quicksand',
-                            fontSize: 12,
-                            color: Colors.white,
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                  child: Text(
+                    split.description!,
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 12,
+                      color: AppColors.velvetPale.withOpacity(0.8),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
             ],
@@ -197,10 +183,7 @@ class SplitListItem extends StatelessWidget {
   }
 
   String _getTotalExercisesText(WorkoutSplit split) {
-    final totalExercises = split.sessions.fold<int>(
-      0,
-      (sum, session) => sum + session.exercises.length,
-    );
+    final totalExercises = split.exercises.length;
 
     return totalExercises == 1
         ? '1 Exercise'

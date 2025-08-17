@@ -64,10 +64,10 @@ class ExerciseCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
 
-                    // Primary muscles
+                    // Primary muscles (using general names)
                     Wrap(
                       spacing: 8,
-                      children: exercise.primaryMuscles.map((muscle) =>
+                      children: exercise.generalPrimaryMuscles.map((muscle) =>
                         _buildChip(muscle, isPrimary: true)
                       ).toList(),
                     ),

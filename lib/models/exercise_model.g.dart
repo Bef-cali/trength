@@ -17,14 +17,14 @@ class ExerciseAdapter extends TypeAdapter<Exercise> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return Exercise(
-      id: fields[0] as String,
+      id: fields[0] as String?,
       name: fields[1] as String,
       category: fields[2] as String,
       primaryMuscles: (fields[3] as List).cast<String>(),
       secondaryMuscles: (fields[4] as List).cast<String>(),
       isCustom: fields[5] as bool,
       userId: fields[6] as String?,
-      createdAt: fields[7] as DateTime,
+      createdAt: fields[7] as DateTime?,
       equipment: fields[8] as String?,
       description: fields[9] as String?,
     );

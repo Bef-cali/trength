@@ -18,11 +18,11 @@ class ProgressionSettingsAdapter extends TypeAdapter<ProgressionSettings> {
     };
     return ProgressionSettings(
       weightIncrementKg: fields[0] as double,
-      progressionStrategy: fields[1] as String, // Fixed: Changed from 2 to 1
-      minRepsBeforeWeightIncrease: fields[2] as int, // Fixed: Changed from 3 to 2
-      plateauThreshold: fields[3] as int, // Fixed: Changed from 4 to 3
-      deloadPercentage: fields[4] as double, // Fixed: Changed from 5 to 4
-      defaultRestTimeSeconds: fields[5] as int, // Fixed: Changed from 6 to 5
+      progressionStrategy: fields[1] as String,
+      minRepsBeforeWeightIncrease: fields[2] as int,
+      plateauThreshold: fields[3] as int,
+      deloadPercentage: fields[4] as double,
+      defaultRestTimeSeconds: fields[5] as int,
     );
   }
 
@@ -32,15 +32,15 @@ class ProgressionSettingsAdapter extends TypeAdapter<ProgressionSettings> {
       ..writeByte(6)
       ..writeByte(0)
       ..write(obj.weightIncrementKg)
-      ..writeByte(1) // Fixed: Changed from 2 to 1
+      ..writeByte(1)
       ..write(obj.progressionStrategy)
-      ..writeByte(2) // Fixed: Changed from 3 to 2
+      ..writeByte(2)
       ..write(obj.minRepsBeforeWeightIncrease)
-      ..writeByte(3) // Fixed: Changed from 4 to 3
+      ..writeByte(3)
       ..write(obj.plateauThreshold)
-      ..writeByte(4) // Fixed: Changed from 5 to 4
+      ..writeByte(4)
       ..write(obj.deloadPercentage)
-      ..writeByte(5) // Fixed: Changed from 6 to 5
+      ..writeByte(5)
       ..write(obj.defaultRestTimeSeconds);
   }
 

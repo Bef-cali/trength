@@ -17,7 +17,7 @@ class PersonalRecordAdapter extends TypeAdapter<PersonalRecord> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return PersonalRecord(
-      id: fields[0] as String,
+      id: fields[0] as String?,
       exerciseId: fields[1] as String,
       type: fields[2] as String,
       value: fields[3] as double,
@@ -25,13 +25,15 @@ class PersonalRecordAdapter extends TypeAdapter<PersonalRecord> {
       reps: fields[5] as int?,
       date: fields[6] as DateTime,
       workoutId: fields[7] as String,
+      formula: fields[8] as String?,
+      weightUnit: fields[9] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, PersonalRecord obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -47,7 +49,11 @@ class PersonalRecordAdapter extends TypeAdapter<PersonalRecord> {
       ..writeByte(6)
       ..write(obj.date)
       ..writeByte(7)
-      ..write(obj.workoutId);
+      ..write(obj.workoutId)
+      ..writeByte(8)
+      ..write(obj.formula)
+      ..writeByte(9)
+      ..write(obj.weightUnit);
   }
 
   @override

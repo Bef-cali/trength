@@ -6,7 +6,6 @@ import 'package:path_provider/path_provider.dart';
 
 import 'models/exercise_model.dart';
 import 'models/workout_split.dart';
-import 'models/workout_session.dart';
 import 'models/exercise_reference.dart';
 import 'models/active_workout.dart';
 import 'models/exercise_set.dart';
@@ -19,7 +18,6 @@ import 'repositories/exercise_repository.dart';
 import 'repositories/split_repository.dart';
 import 'repositories/workout_repository.dart';
 import 'screens/home_screen.dart';
-import 'screens/workout_start_screen.dart';
 import 'screens/workout_history_screen.dart';
 import 'screens/active_workout_screen.dart';
 import 'screens/workout_dashboard_screen.dart';
@@ -39,7 +37,6 @@ void main() async {
   // Register adapters - using typeId to ensure no conflicts
   if (!Hive.isAdapterRegistered(0)) Hive.registerAdapter(ExerciseAdapter());
   if (!Hive.isAdapterRegistered(2)) Hive.registerAdapter(WorkoutSplitAdapter());
-  if (!Hive.isAdapterRegistered(3)) Hive.registerAdapter(WorkoutSessionAdapter());
   if (!Hive.isAdapterRegistered(4)) Hive.registerAdapter(ExerciseReferenceAdapter());
   if (!Hive.isAdapterRegistered(5)) Hive.registerAdapter(ActiveWorkoutAdapter());
   if (!Hive.isAdapterRegistered(6)) Hive.registerAdapter(ExerciseSetAdapter());
@@ -111,7 +108,6 @@ class TrengthApp extends StatelessWidget {
         routes: {
           '/': (context) => const SplashScreen(),
           '/home': (context) => const HomeScreen(),
-          '/workout-start': (context) => const WorkoutStartScreen(),
           '/active-workout': (context) => const ActiveWorkoutScreen(),
           '/workout-history': (context) => const WorkoutHistoryScreen(),
           '/workout-dashboard': (context) => const WorkoutDashboardScreen(),

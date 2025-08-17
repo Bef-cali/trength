@@ -17,7 +17,7 @@ class ExerciseSetAdapter extends TypeAdapter<ExerciseSet> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ExerciseSet(
-      id: fields[0] as String,
+      id: fields[0] as String?,
       weight: fields[1] as double,
       weightUnit: fields[2] as String,
       reps: fields[3] as int,
@@ -26,7 +26,7 @@ class ExerciseSetAdapter extends TypeAdapter<ExerciseSet> {
       isDropSet: fields[6] as bool,
       notes: fields[7] as String?,
       completed: fields[8] as bool,
-      timestamp: fields[9] as DateTime,
+      timestamp: fields[9] as DateTime?,
     );
   }
 

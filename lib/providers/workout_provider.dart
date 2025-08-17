@@ -6,7 +6,6 @@ import '../models/exercise_set.dart';
 import '../models/personal_record.dart';
 import '../models/progression_settings.dart';
 import '../models/workout_split.dart';
-import '../models/workout_session.dart';
 import '../repositories/workout_repository.dart';
 import '../utils/one_rep_max_calculator.dart';
 
@@ -23,7 +22,7 @@ class WorkoutProvider with ChangeNotifier {
   // Progressive overload settings
   Map<String, dynamic>? _progressionSettings;
   bool _isInitialized = false;
-  
+
   // Beginner mode setting
   bool _isBeginnerMode = true;
 
@@ -44,7 +43,7 @@ class WorkoutProvider with ChangeNotifier {
       if (savedSettings != null) {
         _progressionSettings = Map<String, dynamic>.from(savedSettings);
       }
-      
+
       // Load beginner mode setting
       _isBeginnerMode = box.get('isBeginnerMode', defaultValue: true);
 
@@ -77,22 +76,22 @@ class WorkoutProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> startWorkoutFromSplit(WorkoutSplit split, WorkoutSession session) async {
-    // Create a new workout based on the split and session
+
+  Future<void> startWorkoutFromSplitDirect(String splitName, List<String> exerciseIds) async {
+    // Create a new workout with the split name and all exercises
     _currentWorkout = ActiveWorkout(
-      name: session.name,
-      splitId: split.id,
+      name: splitName,
       startTime: DateTime.now(),
     );
 
-    // Initialize empty sets for each exercise in the session
-    for (var exerciseRef in session.exercises) {
-      _currentWorkout!.exerciseSets[exerciseRef.exerciseId] = [];
+    // Initialize empty sets for each exercise
+    for (var exerciseId in exerciseIds) {
+      _currentWorkout!.exerciseSets[exerciseId] = [];
     }
 
     // If there are exercises, set the first one as current
-    if (session.exercises.isNotEmpty) {
-      _currentExerciseId = session.exercises.first.exerciseId;
+    if (exerciseIds.isNotEmpty) {
+      _currentExerciseId = exerciseIds.first;
     }
 
     await _repository.saveActiveWorkout(_currentWorkout!);
@@ -229,13 +228,13 @@ class WorkoutProvider with ChangeNotifier {
   // Check if a set would be a new 1RM PR without saving it
   bool wouldBe1RMPR(String exerciseId, ExerciseSet set) {
     if (set.isWarmup || !set.completed) return false;
-    
+
     final currentOneRM = calculate1RM(set);
     final currentBest = getBest1RM(exerciseId);
-    
+
     if (currentBest == null) return true;
     if (currentBest.weightUnit != set.weightUnit) return false;
-    
+
     const double threshold = 0.5;
     return currentOneRM.oneRepMax > (currentBest.value + threshold);
   }
@@ -484,19 +483,19 @@ class WorkoutProvider with ChangeNotifier {
   ActiveWorkout? getWorkoutById(String id) {
     return _repository.getWorkoutById(id);
   }
-  
+
   // Settings management methods
   Future<void> setBeginnerMode(bool isBeginnerMode) async {
     _isBeginnerMode = isBeginnerMode;
-    
+
     try {
       if (!Hive.isBoxOpen(_settingsBoxName)) {
         await Hive.openBox(_settingsBoxName);
       }
-      
+
       final box = Hive.box(_settingsBoxName);
       await box.put('isBeginnerMode', isBeginnerMode);
-      
+
       notifyListeners();
     } catch (e) {
       print('Error saving beginner mode setting: $e');

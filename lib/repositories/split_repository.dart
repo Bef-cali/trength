@@ -2,7 +2,6 @@
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/workout_split.dart';
-import '../models/workout_session.dart';
 import '../models/exercise_reference.dart';
 
 class SplitRepository {
@@ -12,9 +11,6 @@ class SplitRepository {
     // Register adapters if not already registered
     if (!Hive.isAdapterRegistered(2)) {
       Hive.registerAdapter(WorkoutSplitAdapter());
-    }
-    if (!Hive.isAdapterRegistered(3)) {
-      Hive.registerAdapter(WorkoutSessionAdapter());
     }
     if (!Hive.isAdapterRegistered(4)) {
       Hive.registerAdapter(ExerciseReferenceAdapter());
@@ -63,9 +59,7 @@ class SplitRepository {
   Future<List<WorkoutSplit>> getSplitsContainingExercise(String exerciseId) async {
     final allSplits = await getAllSplits();
     return allSplits.where((split) {
-      return split.sessions.any((session) {
-        return session.exercises.any((exercise) => exercise.exerciseId == exerciseId);
-      });
+      return split.exercises.any((exercise) => exercise.exerciseId == exerciseId);
     }).toList();
   }
 }

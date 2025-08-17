@@ -13,14 +13,11 @@ class ExerciseReferenceAdapter extends TypeAdapter<ExerciseReference> {
   @override
   ExerciseReference read(BinaryReader reader) {
     final numOfFields = reader.readByte();
-    final fields = <int, dynamic>{};
-    for (int i = 0; i < numOfFields; i++) {
-      final key = reader.readByte();
-      final value = reader.read();
-      fields[key] = value;
-    }
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
     return ExerciseReference(
-      id: fields[0] as String,
+      id: fields[0] as String?,
       exerciseId: fields[1] as String,
       order: fields[2] as int,
       targetSets: fields[3] as int?,
@@ -31,18 +28,29 @@ class ExerciseReferenceAdapter extends TypeAdapter<ExerciseReference> {
 
   @override
   void write(BinaryWriter writer, ExerciseReference obj) {
-    writer.writeByte(6);
-    writer.writeByte(0);
-    writer.write(obj.id);
-    writer.writeByte(1);
-    writer.write(obj.exerciseId);
-    writer.writeByte(2);
-    writer.write(obj.order);
-    writer.writeByte(3);
-    writer.write(obj.targetSets);
-    writer.writeByte(4);
-    writer.write(obj.targetReps);
-    writer.writeByte(5);
-    writer.write(obj.notes);
+    writer
+      ..writeByte(6)
+      ..writeByte(0)
+      ..write(obj.id)
+      ..writeByte(1)
+      ..write(obj.exerciseId)
+      ..writeByte(2)
+      ..write(obj.order)
+      ..writeByte(3)
+      ..write(obj.targetSets)
+      ..writeByte(4)
+      ..write(obj.targetReps)
+      ..writeByte(5)
+      ..write(obj.notes);
   }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExerciseReferenceAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
 }

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../providers/workout_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../theme/app_colors.dart';
-import '../screens/workout_start_screen.dart';
 import '../screens/active_workout_screen.dart';
 import '../screens/workout_history_screen.dart';
 
@@ -77,12 +76,7 @@ class WorkoutModule extends StatelessWidget {
                   ),
                 ),
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const WorkoutStartScreen(),
-                    ),
-                  );
+                  Navigator.pushNamed(context, '/workout-dashboard');
                 },
               ),
             ),

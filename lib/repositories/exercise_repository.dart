@@ -213,6 +213,27 @@ class ExerciseRepository {
     return muscles.toList();
   }
 
+  // Get all available muscle groups (general names)
+  List<String> getAllGeneralMuscleGroups() {
+    Set<String> muscles = {};
+
+    for (var exercise in _exerciseBox.values) {
+      muscles.addAll(exercise.generalPrimaryMuscles);
+      muscles.addAll(exercise.generalSecondaryMuscles);
+    }
+
+    return muscles.toList()..sort();
+  }
+
+  // Get exercises by general muscle group
+  List<Exercise> getExercisesByGeneralMuscle(String generalMuscle) {
+    return _exerciseBox.values
+        .where((exercise) =>
+            exercise.generalPrimaryMuscles.any((m) => m.toLowerCase() == generalMuscle.toLowerCase()) ||
+            exercise.generalSecondaryMuscles.any((m) => m.toLowerCase() == generalMuscle.toLowerCase()))
+        .toList();
+  }
+
   // Recategorize arms exercises - can be used when updating to the new category system
   Future<void> recategorizeArmsExercises() async {
     final armsExercises = _exerciseBox.values

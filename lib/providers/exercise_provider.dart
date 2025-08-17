@@ -42,7 +42,7 @@ class ExerciseProvider with ChangeNotifier {
     // Load filter options - using the ordered list for categories
     _categories = _repository.getStandardCategories();
     _equipmentTypes = _repository.getAllEquipmentTypes();
-    _muscleGroups = _repository.getAllMuscleGroups();
+    _muscleGroups = _repository.getAllGeneralMuscleGroups();
 
     _isLoading = false;
     notifyListeners();
@@ -85,6 +85,11 @@ class ExerciseProvider with ChangeNotifier {
   // Get cardio exercises
   List<Exercise> getCardioExercises() => _repository.getExercisesByCategory('Cardio');
 
+  // Get exercises by general muscle group (simplified names)
+  List<Exercise> getExercisesByGeneralMuscle(String generalMuscle) {
+    return _repository.getExercisesByGeneralMuscle(generalMuscle);
+  }
+
   // Refresh data from repository
   Future<void> refreshExercises() async {
     _isLoading = true;
@@ -95,7 +100,7 @@ class ExerciseProvider with ChangeNotifier {
     // Refresh the categories to ensure new ones are included
     _categories = _repository.getStandardCategories();
     _equipmentTypes = _repository.getAllEquipmentTypes();
-    _muscleGroups = _repository.getAllMuscleGroups();
+    _muscleGroups = _repository.getAllGeneralMuscleGroups();
 
     _applyFilters();
 
@@ -123,12 +128,12 @@ class ExerciseProvider with ChangeNotifier {
           .toList();
     }
 
-    // Apply muscle filter
+    // Apply muscle filter (using general muscle groups)
     if (_selectedMuscle != null && _selectedMuscle!.isNotEmpty) {
       _filteredExercises = _filteredExercises
           .where((exercise) =>
-              exercise.primaryMuscles.contains(_selectedMuscle) ||
-              exercise.secondaryMuscles.contains(_selectedMuscle))
+              exercise.generalPrimaryMuscles.contains(_selectedMuscle) ||
+              exercise.generalSecondaryMuscles.contains(_selectedMuscle))
           .toList();
     }
 
@@ -196,13 +201,13 @@ class ExerciseProvider with ChangeNotifier {
       _equipmentTypes.add(exercise.equipment!);
     }
 
-    for (var muscle in exercise.primaryMuscles) {
+    for (var muscle in exercise.generalPrimaryMuscles) {
       if (!_muscleGroups.contains(muscle)) {
         _muscleGroups.add(muscle);
       }
     }
 
-    for (var muscle in exercise.secondaryMuscles) {
+    for (var muscle in exercise.generalSecondaryMuscles) {
       if (!_muscleGroups.contains(muscle)) {
         _muscleGroups.add(muscle);
       }

@@ -25,14 +25,24 @@ class _HomeScreenState extends State<HomeScreen> {
       body: _buildCurrentScreen(),
       bottomNavigationBar: Container(
         width: double.infinity,
-        color: AppColors.deepVelvet,
+        color: Colors.transparent,
         child: SafeArea(
           child: Container(
-            height: 60,
+            height: 80,
             child: Center(
               child: Container(
-                width: 300, // Fixed width for centered nav bar
+                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.deepVelvet.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.1),
+                    width: 0.5,
+                  ),
+                ),
                 child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _buildNavItem(
@@ -41,24 +51,28 @@ class _HomeScreenState extends State<HomeScreen> {
                       label: 'Home',
                       index: 0,
                     ),
+                    const SizedBox(width: 8),
                     _buildNavItem(
-                      icon: Icons.calendar_view_day_outlined,
-                      selectedIcon: Icons.calendar_view_day,
-                      label: 'exercises',
+                      icon: Icons.fitness_center_outlined,
+                      selectedIcon: Icons.fitness_center,
+                      label: 'splits',
                       index: 1,
                     ),
+                    const SizedBox(width: 8),
                     _buildNavItem(
                       icon: Icons.bar_chart_outlined,
                       selectedIcon: Icons.bar_chart,
                       label: 'analytics',
                       index: 2,
                     ),
+                    const SizedBox(width: 8),
                     _buildNavItem(
                       icon: Icons.history_outlined,
                       selectedIcon: Icons.history,
                       label: 'history',
                       index: 3,
                     ),
+                    const SizedBox(width: 8),
                     _buildNavItem(
                       icon: Icons.settings_outlined,
                       selectedIcon: Icons.settings,
@@ -90,7 +104,17 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: isSelected
+            ? BoxDecoration(
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.3),
+                  width: 1,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                color: Colors.white.withOpacity(0.05),
+              )
+            : null,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -99,14 +123,14 @@ class _HomeScreenState extends State<HomeScreen> {
               color: isSelected 
                   ? Colors.white 
                   : Colors.white.withOpacity(0.6),
-              size: 24,
+              size: 22,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               label,
               style: TextStyle(
                 fontFamily: 'Quicksand',
-                fontSize: 12,
+                fontSize: 10,
                 color: isSelected 
                     ? Colors.white 
                     : Colors.white.withOpacity(0.6),

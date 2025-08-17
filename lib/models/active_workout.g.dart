@@ -17,15 +17,15 @@ class ActiveWorkoutAdapter extends TypeAdapter<ActiveWorkout> {
       for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
     };
     return ActiveWorkout(
-      id: fields[0] as String,
       name: fields[2] as String,
+      id: fields[0] as String?,
       splitId: fields[1] as String?,
-      startTime: fields[3] as DateTime,
+      startTime: fields[3] as DateTime?,
       endTime: fields[4] as DateTime?,
       notes: fields[5] as String?,
       isCompleted: fields[6] as bool,
-      exerciseSets: (fields[7] as Map).map((dynamic k, dynamic v) =>
-        MapEntry(k as String, (v as List).cast<ExerciseSet>())),
+      exerciseSets: (fields[7] as Map?)?.map((dynamic k, dynamic v) =>
+          MapEntry(k as String, (v as List).cast<ExerciseSet>())),
     );
   }
 

@@ -1,7 +1,7 @@
 // lib/models/workout_split.dart
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
-import 'workout_session.dart';
+import 'exercise_reference.dart';
 
 part 'workout_split.g.dart';
 
@@ -23,7 +23,7 @@ class WorkoutSplit extends HiveObject {
   DateTime updatedAt;
 
   @HiveField(5)
-  List<WorkoutSession> sessions;
+  List<ExerciseReference> exercises;
 
   WorkoutSplit({
     String? id,
@@ -31,17 +31,17 @@ class WorkoutSplit extends HiveObject {
     this.description,
     DateTime? createdAt,
     DateTime? updatedAt,
-    List<WorkoutSession>? sessions,
+    List<ExerciseReference>? exercises,
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now(),
-        sessions = sessions ?? [];
+        exercises = exercises ?? [];
 
   // Create a copy with updated fields
   WorkoutSplit copyWith({
     String? name,
     String? description,
-    List<WorkoutSession>? sessions,
+    List<ExerciseReference>? exercises,
   }) {
     return WorkoutSplit(
       id: this.id,
@@ -49,7 +49,7 @@ class WorkoutSplit extends HiveObject {
       description: description ?? this.description,
       createdAt: this.createdAt,
       updatedAt: DateTime.now(),
-      sessions: sessions ?? List.from(this.sessions),
+      exercises: exercises ?? List.from(this.exercises),
     );
   }
 }

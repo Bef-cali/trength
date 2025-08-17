@@ -245,7 +245,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              ...exercise.primaryMuscles.map((muscle) =>
+              ...exercise.generalPrimaryMuscles.map((muscle) =>
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
@@ -289,7 +289,7 @@ class ExerciseDetailScreen extends StatelessWidget {
         const SizedBox(width: 8), // Add space between columns
 
         // Secondary muscles (if any)
-        if (exercise.secondaryMuscles.isNotEmpty)
+        if (exercise.generalSecondaryMuscles.isNotEmpty)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -303,7 +303,7 @@ class ExerciseDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                ...exercise.secondaryMuscles.map((muscle) =>
+                ...exercise.generalSecondaryMuscles.map((muscle) =>
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: Row(

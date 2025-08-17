@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/exercise_provider.dart';
 import '../providers/split_provider.dart';
+import '../providers/workout_provider.dart';
 import '../models/exercise_model.dart';
 import '../models/workout_split.dart';
 import '../theme/app_colors.dart';
@@ -60,8 +61,8 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                   isScrollable: true,
                   tabAlignment: TabAlignment.start,
                   tabs: const [
-                    Tab(text: 'EXERCISES'),
                     Tab(text: 'SPLIT'),
+                    Tab(text: 'EXERCISES'),
                   ],
                 ),
               ],
@@ -72,8 +73,8 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _buildExercisesTab(),
                 _buildSplitTab(),
+                _buildExercisesTab(),
               ],
             ),
           ),
@@ -188,44 +189,64 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
   }
 
   Widget _buildSplitTab() {
-    return Consumer<SplitProvider>(
-      builder: (context, splitProvider, child) {
-        final splits = splitProvider.splits;
+    return Scaffold(
+      backgroundColor: AppColors.deepVelvet,
+      body: Consumer<SplitProvider>(
+        builder: (context, splitProvider, child) {
+          final splits = splitProvider.splits;
 
-        if (splits.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.calendar_view_day,
-                  size: 64,
-                  color: AppColors.velvetLight.withOpacity(0.5),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'No workout splits',
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+          if (splits.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.fitness_center,
+                    size: 64,
+                    color: AppColors.velvetLight.withOpacity(0.5),
                   ),
-                ),
-              ],
-            ),
-          );
-        }
+                  const SizedBox(height: 16),
+                  Text(
+                    'No workout splits',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Create your first split to get started',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: splits.length,
-          itemBuilder: (context, index) {
-            final split = splits[index];
-            return _buildSplitCard(split);
-          },
-        );
-      },
+          return ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            itemCount: splits.length,
+            itemBuilder: (context, index) {
+              final split = splits[index];
+              return _buildSplitCard(split);
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddSplitModal,
+        backgroundColor: AppColors.velvetHighlight,
+        child: const Icon(
+          Icons.add,
+          color: Colors.white,
+        ),
+      ),
     );
   }
 
@@ -266,8 +287,8 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  exercise.primaryMuscles.isNotEmpty 
-                      ? exercise.primaryMuscles.first 
+                  exercise.generalPrimaryMuscles.isNotEmpty 
+                      ? exercise.generalPrimaryMuscles.first 
                       : 'General',
                   style: TextStyle(
                     fontFamily: 'Quicksand',
@@ -283,8 +304,8 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    exercise.primaryMuscles.isNotEmpty 
-                        ? exercise.primaryMuscles.first 
+                    exercise.generalPrimaryMuscles.isNotEmpty 
+                        ? exercise.generalPrimaryMuscles.first 
                         : 'General',
                     style: TextStyle(
                       fontFamily: 'Quicksand',
@@ -311,26 +332,32 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
   }
 
   Widget _buildSplitCard(WorkoutSplit split) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.royalVelvet,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
+    // Get total exercises directly from split
+    final totalExercises = split.exercises.length;
+
+    return InkWell(
+      onTap: () => _openSplitDetails(split),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.royalVelvet,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
         children: [
-          // Split icon placeholder
+          // Split icon - workout related
           Container(
-            width: 50,
-            height: 50,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: AppColors.velvetHighlight,
+              color: AppColors.velvetLight.withOpacity(0.3),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(
-              Icons.calendar_view_day,
-              color: Colors.white.withOpacity(0.8),
+              Icons.fitness_center,
+              color: Colors.white.withOpacity(0.7),
               size: 24,
             ),
           ),
@@ -350,28 +377,53 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  '${split.sessions.length} sessions',
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 14,
-                    color: Colors.white.withOpacity(0.7),
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      '$totalExercises exercises',
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.6),
+                      ),
+                    ),
+                  ],
                 ),
+                if (split.description != null && split.description!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.velvetHighlight.withOpacity(0.4),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      split.description!,
+                      style: TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.8),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          // Add button
+          // Start workout button
           IconButton(
-            onPressed: () => _openSplitDetails(split),
+            onPressed: () => _startWorkoutFromSplit(split),
             icon: const Icon(
-              Icons.add,
+              Icons.play_arrow,
               color: Colors.white,
               size: 24,
             ),
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -393,198 +445,90 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
     );
   }
 
+  void _startWorkoutFromSplit(WorkoutSplit split) {
+    // Get all exercises directly from the split
+    final allExercises = split.exercises.map((ref) => ref.exerciseId).toList();
+
+    if (allExercises.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('This split has no exercises to start'),
+          backgroundColor: AppColors.velvetHighlight,
+        ),
+      );
+      return;
+    }
+
+    final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+    
+    // Start a workout with all exercises from the split
+    workoutProvider.startWorkoutFromSplitDirect(split.name, allExercises).then((_) {
+      // Navigate to active workout screen
+      Navigator.pushNamed(context, '/active-workout');
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to start workout: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    });
+  }
+
   Widget _getExerciseIcon(Exercise exercise) {
-    // Get the appropriate muscle group icon
+    // Get the appropriate muscle group icon using general muscle groups
     String iconPath = 'assets/icons/muscle.png'; // Default
     
-    if (exercise.primaryMuscles.isNotEmpty) {
-      final primaryMuscle = exercise.primaryMuscles.first.toLowerCase();
+    if (exercise.generalPrimaryMuscles.isNotEmpty) {
+      final primaryMuscle = exercise.generalPrimaryMuscles.first.toLowerCase();
       
-      // Map to actual icon files that exist in assets/icons/
+      // Simple mapping using general muscle group names
       switch (primaryMuscle) {
-        // CHEST
         case 'chest':
-        case 'pectorals':
-        case 'pecs':
-        case 'pectoral':
-        case 'chest muscles':
-        case 'pectoralis major':
-        case 'upper pectoralis major':
-        case 'lower pectoralis major':
           iconPath = 'assets/icons/chest.png';
           break;
-        
-        // BACK
         case 'back':
-        case 'rear':
-        case 'posterior':
-        case 'back muscles':
-        case 'erector spinae':
-        case 'rhomboids':
-        case 'middle trapezius':
           iconPath = 'assets/icons/back.png';
           break;
-        
-        // SHOULDERS
         case 'shoulders':
-        case 'shoulder':
-        case 'deltoids':
-        case 'delts':
-        case 'deltoid':
-        case 'anterior deltoid':
-        case 'posterior deltoid':
-        case 'lateral deltoid':
-        case 'middle deltoid':
-        case 'supraspinatus':
           iconPath = 'assets/icons/shoulders.png';
           break;
-        
-        // ARMS/BICEPS
         case 'arms':
-        case 'biceps':
-        case 'bicep':
-        case 'arm':
-        case 'upper arms':
-        case 'biceps brachii':
-        case 'brachialis':
-        case 'brachioradialis':
           iconPath = 'assets/icons/arms.png';
           break;
-        
-        // TRICEPS
         case 'triceps':
-        case 'tricep':
-        case 'triceps brachii':
-        case 'back of arms':
           iconPath = 'assets/icons/triceps.png';
           break;
-        
-        // QUADS
         case 'legs':
-        case 'quadriceps':
-        case 'quads':
-        case 'quad':
-        case 'thighs':
-        case 'front thigh':
-        case 'quadriceps femoris':
-        case 'upper legs':
           iconPath = 'assets/icons/quads.png';
           break;
-        
-        // HAMSTRINGS
         case 'hamstrings':
-        case 'hamstring':
-        case 'hams':
-        case 'back thigh':
-        case 'rear thigh':
-        case 'biceps femoris':
           iconPath = 'assets/icons/hamstrings.png';
           break;
-        
-        // CALVES
         case 'calves':
-        case 'calf':
-        case 'lower legs':
-        case 'gastrocnemius':
-        case 'soleus':
-        case 'calf muscles':
           iconPath = 'assets/icons/calves.png';
           break;
-        
-        // GLUTES
         case 'glutes':
-        case 'glute':
-        case 'gluteus':
-        case 'gluteus maximus':
-        case 'gluteus medius':
-        case 'gluteus minimus':
-        case 'butt':
-        case 'buttocks':
-        case 'hips':
           iconPath = 'assets/icons/glutes.png';
           break;
-        
-        // ABS
         case 'abs':
-        case 'abdominals':
-        case 'core':
-        case 'stomach':
-        case 'rectus abdominis':
-        case 'lower rectus abdominis':
-        case 'upper rectus abdominis':
-        case 'six pack':
-        case 'abdominal':
-        case 'midsection':
-        case 'obliques':
-        case 'transverse abdominis':
-        case 'hip flexors':
-        case 'quadratus lumborum':
           iconPath = 'assets/icons/abs.png';
           break;
-        
-        // FOREARMS
         case 'forearms':
-        case 'forearm':
-        case 'lower arms':
-        case 'wrists':
-        case 'grip':
-        case 'forearm flexors':
-        case 'flexor carpi radialis':
-        case 'flexor carpi ulnaris':
-        case 'extensor carpi radialis':
-        case 'extensor carpi ulnaris':
-        case 'pronator teres':
-        case 'pronator quadratus':
-        case 'supinator':
           iconPath = 'assets/icons/forearms.png';
           break;
-        
-        // TRAPS
         case 'traps':
-        case 'trapezius':
-        case 'trap':
-        case 'upper traps':
-        case 'upper trapezius':
-        case 'middle traps':
-        case 'lower traps':
-        case 'neck':
-        case 'sternocleidomastoid':
-        case 'scalenes':
-        case 'splenius capitis':
-        case 'deep cervical flexors':
           iconPath = 'assets/icons/traps.png';
           break;
-        
-        // LATS
         case 'lats':
-        case 'latissimus dorsi':
-        case 'lat':
-        case 'side back':
-        case 'wings':
-        case 'lateral back':
           iconPath = 'assets/icons/lats.png';
           break;
-        
-        // LOWER BACK
-        case 'lower back':
-        case 'lumbar':
-        case 'erector spinae':
-        case 'spinal erectors':
-        case 'back extensors':
-        case 'lower spine':
-          iconPath = 'assets/icons/lower_back.png';
+        case 'neck':
+          iconPath = 'assets/icons/traps.png'; // Using traps icon for neck
           break;
-        
-        // CARDIO
         case 'cardio':
-        case 'cardiovascular':
-        case 'aerobic':
-        case 'endurance':
-        case 'conditioning':
-        case 'heart':
           iconPath = 'assets/icons/cardio.png';
           break;
-        
         default:
           iconPath = 'assets/icons/muscle.png';
       }
@@ -635,7 +579,7 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
       ),
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => Container(
-          height: MediaQuery.of(context).size.height * 0.85,
+          height: MediaQuery.of(context).size.height * 0.5,
           decoration: const BoxDecoration(
             color: AppColors.deepVelvet,
             borderRadius: BorderRadius.only(
@@ -643,7 +587,7 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
               topRight: Radius.circular(25),
             ),
           ),
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -652,23 +596,23 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                 'Add Exercise',
                 style: TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 20),
 
               // Name field
               const Text(
                 'Name',
                 style: TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: 16,
+                  fontSize: 14,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.royalVelvet,
@@ -687,7 +631,7 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                       color: Colors.white.withOpacity(0.5),
                     ),
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(16),
+                    contentPadding: const EdgeInsets.all(12),
                     suffixIcon: Icon(
                       Icons.edit,
                       color: Colors.white.withOpacity(0.7),
@@ -696,29 +640,29 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Body part field
               const Text(
                 'Body part',
                 style: TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: 16,
+                  fontSize: 14,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.royalVelvet,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        selectedBodyPart ?? '',
+                        selectedBodyPart ?? 'Select body part',
                         style: TextStyle(
                           fontFamily: 'Quicksand',
                           color: selectedBodyPart != null 
@@ -753,29 +697,29 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Equipment field
               const Text(
                 'Equipment',
                 style: TextStyle(
                   fontFamily: 'Quicksand',
-                  fontSize: 16,
+                  fontSize: 14,
                   color: Colors.white,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Row(
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: AppColors.royalVelvet,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        selectedEquipment ?? '',
+                        selectedEquipment ?? 'Select equipment',
                         style: TextStyle(
                           fontFamily: 'Quicksand',
                           color: selectedEquipment != null 
@@ -811,7 +755,7 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                 ],
               ),
 
-              const Spacer(),
+              const SizedBox(height: 20),
 
               // Action buttons
               Column(
@@ -819,9 +763,57 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        // Save logic here
-                        Navigator.pop(context);
+                      onPressed: () async {
+                        // Validate inputs
+                        if (nameController.text.trim().isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please enter exercise name'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                        
+                        if (selectedBodyPart == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please select body part'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        // Create exercise with general muscle names
+                        final exercise = Exercise(
+                          name: nameController.text.trim(),
+                          category: selectedBodyPart!,
+                          primaryMuscles: [selectedBodyPart!], // Using general muscle name
+                          secondaryMuscles: [],
+                          equipment: selectedEquipment,
+                          isCustom: true,
+                        );
+
+                        try {
+                          final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+                          await exerciseProvider.addExercise(exercise);
+                          
+                          Navigator.pop(context);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Added "${exercise.name}" successfully'),
+                              backgroundColor: AppColors.velvetHighlight,
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Failed to add exercise: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.velvetHighlight,
@@ -841,7 +833,7 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
@@ -875,8 +867,9 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
 
   void _showBodyPartPicker(BuildContext context, Function(String) onSelected) {
     final bodyParts = [
-      'Chest', 'Back', 'Shoulders', 'Arms', 'Legs', 
-      'Abs', 'Glutes', 'Hamstrings', 'Quads', 'Calves'
+      'Chest', 'Back', 'Shoulders', 'Arms', 'Triceps', 'Legs', 
+      'Hamstrings', 'Calves', 'Glutes', 'Abs', 'Forearms', 
+      'Traps', 'Lats', 'Neck', 'Cardio'
     ];
 
     showModalBottomSheet(
@@ -1149,6 +1142,322 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  void _showAddSplitModal() {
+    final nameController = TextEditingController();
+    final selectedExercises = <String>{};
+    
+    // Clear any existing filters for a fresh start
+    final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+    exerciseProvider.setSearchQuery('');
+    exerciseProvider.setMuscle(null);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(25),
+          topRight: Radius.circular(25),
+        ),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          height: MediaQuery.of(context).size.height * 0.9,
+          decoration: const BoxDecoration(
+            color: AppColors.deepVelvet,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(25),
+              topRight: Radius.circular(25),
+            ),
+          ),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Title and Split Name
+              Row(
+                children: [
+                  const Text(
+                    'Create Split',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${selectedExercises.length} exercises',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 14,
+                      color: AppColors.velvetHighlight,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Split name field - compact
+              TextField(
+                controller: nameController,
+                style: const TextStyle(color: Colors.white, fontSize: 16),
+                decoration: InputDecoration(
+                  hintText: 'Enter split name...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.velvetHighlight),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Exercise search
+              TextField(
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Search exercises...',
+                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                  prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.velvetHighlight),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
+                onChanged: (value) {
+                  Provider.of<ExerciseProvider>(context, listen: false).setSearchQuery(value);
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // Horizontal muscle group filter
+              SizedBox(
+                height: 40,
+                child: Consumer<ExerciseProvider>(
+                  builder: (context, exerciseProvider, child) {
+                    final muscleGroups = ['All', ...exerciseProvider.muscleGroups];
+                    return ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: muscleGroups.length,
+                      itemBuilder: (context, index) {
+                        final muscle = muscleGroups[index];
+                        final isSelected = (muscle == 'All' && exerciseProvider.selectedMuscle == null) ||
+                                         muscle == exerciseProvider.selectedMuscle;
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: FilterChip(
+                            label: Text(
+                              muscle,
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              exerciseProvider.setMuscle(muscle == 'All' ? null : muscle);
+                            },
+                            backgroundColor: AppColors.royalVelvet,
+                            selectedColor: AppColors.velvetHighlight,
+                            side: BorderSide.none,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Exercise list
+              Expanded(
+                child: Consumer<ExerciseProvider>(
+                  builder: (context, exerciseProvider, child) {
+                    final filteredExercises = exerciseProvider.filteredExercises;
+                    
+                    if (filteredExercises.isEmpty) {
+                      return const Center(
+                        child: Text(
+                          'No exercises found',
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            color: Colors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      );
+                    }
+                    
+                    return ListView.builder(
+                      itemCount: filteredExercises.length,
+                      itemBuilder: (context, index) {
+                        final exercise = filteredExercises[index];
+                        final isSelected = selectedExercises.contains(exercise.id);
+                        
+                        return Card(
+                          color: isSelected 
+                              ? AppColors.velvetHighlight.withOpacity(0.3) 
+                              : AppColors.royalVelvet,
+                          margin: const EdgeInsets.only(bottom: 6),
+                          child: ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            leading: _getExerciseIcon(exercise),
+                            title: Text(
+                              exercise.name,
+                              style: const TextStyle(
+                                fontFamily: 'Quicksand',
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            subtitle: Text(
+                              exercise.generalPrimaryMuscles.isNotEmpty
+                                  ? exercise.generalPrimaryMuscles.join(', ')
+                                  : 'No target muscles',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                color: Colors.white.withOpacity(0.6),
+                                fontSize: 11,
+                              ),
+                            ),
+                            trailing: isSelected
+                                ? const Icon(Icons.check_circle, color: AppColors.velvetHighlight, size: 20)
+                                : Icon(Icons.add_circle_outline, color: Colors.white.withOpacity(0.5), size: 20),
+                            onTap: () {
+                              setState(() {
+                                if (isSelected) {
+                                  selectedExercises.remove(exercise.id);
+                                } else {
+                                  selectedExercises.add(exercise.id);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+
+              // Action buttons - compact
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        if (nameController.text.trim().isNotEmpty) {
+                          final splitProvider = Provider.of<SplitProvider>(context, listen: false);
+                          
+                          try {
+                            // Create the split first
+                            final newSplit = await splitProvider.createSplit(
+                              name: nameController.text.trim(),
+                            );
+                            
+                            // Add selected exercises to the split
+                            for (final exerciseId in selectedExercises) {
+                              await splitProvider.addExerciseToSplit(newSplit.id, exerciseId);
+                            }
+                            
+                            Navigator.pop(context);
+                            
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Split "${newSplit.name}" created with ${selectedExercises.length} exercises'),
+                                backgroundColor: AppColors.velvetHighlight,
+                              ),
+                            );
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Failed to create split: $e'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.velvetHighlight,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Create Split',
+                        style: TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
