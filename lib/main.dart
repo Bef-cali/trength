@@ -18,10 +18,10 @@ import 'repositories/exercise_repository.dart';
 import 'repositories/split_repository.dart';
 import 'repositories/workout_repository.dart';
 import 'screens/home_screen.dart';
-import 'screens/workout_history_screen.dart';
+import 'screens/templates_screen.dart';
 import 'screens/active_workout_screen.dart';
 import 'screens/workout_dashboard_screen.dart';
-import 'screens/split_list_screen.dart';
+import 'screens/exercise_browse_screen.dart';
 import 'screens/progression_settings_screen.dart';
 import 'screens/analytics/analytics_dashboard_screen.dart';
 import 'screens/analytics/exercise_analytics_screen.dart';
@@ -109,10 +109,10 @@ class TrengthApp extends StatelessWidget {
           '/': (context) => const SplashScreen(),
           '/home': (context) => const HomeScreen(),
           '/active-workout': (context) => const ActiveWorkoutScreen(),
-          '/workout-history': (context) => const WorkoutHistoryScreen(),
+          '/workout-history': (context) => const TemplatesScreen(),
           '/workout-dashboard': (context) => const WorkoutDashboardScreen(),
-          '/splits': (context) => const SplitListScreen(),
-          '/create-split': (context) => const SplitListScreen(),
+          '/splits': (context) => const ExerciseBrowseScreen(),
+          '/create-split': (context) => const ExerciseBrowseScreen(),
           '/progression-settings': (context) => const ProgressionSettingsScreen(),
           '/analytics': (context) => const AnalyticsDashboardScreen(),
           '/exercise-analytics': (context) => const ExerciseAnalyticsScreen(),

@@ -1,6 +1,7 @@
 // lib/widgets/personal_record_celebration.dart
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import 'confetti_widget.dart';
 
 class PersonalRecordCelebration extends StatefulWidget {
   final VoidCallback onClose;
@@ -28,64 +29,32 @@ class _PersonalRecordCelebrationState extends State<PersonalRecordCelebration>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
-  late Animation<double> _opacityAnimation;
+  bool _showConfetti = true;
 
   @override
   void initState() {
     super.initState();
 
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(seconds: 12), // Set to 12 seconds
       vsync: this,
     );
 
-    // Using ClampedSimulation to ensure values stay within range
-    _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.1),
-        weight: 40,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.1, end: 1.0),
-        weight: 20,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.0),
-        weight: 40,
-      ),
-    ]).animate(CurvedAnimation(
-      parent: _controller,
-      // Using a safer curve that doesn't overshoot
-      curve: Curves.easeOutCubic,
-    ));
-
-    _opacityAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 0.0, end: 1.0),
-        weight: 20,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.0),
-        weight: 60,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 0.0),
-        weight: 20,
-      ),
-    ]).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    ));
-
-    // Safer approach to auto-close after animation
-    // Using a status listener instead of then()
-    _controller.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        if (mounted) {
-          widget.onClose();
-        }
+    // Auto-close after 12 seconds
+    Future.delayed(const Duration(seconds: 12), () {
+      if (mounted) {
+        widget.onClose();
       }
     });
+
+    // Simple bounce-in animation that stays visible
+    _scaleAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    ));
 
     _controller.forward();
   }
@@ -98,30 +67,41 @@ class _PersonalRecordCelebrationState extends State<PersonalRecordCelebration>
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        // Safely handle tap to close
-        if (_controller.isAnimating) {
-          _controller.stop();
-        }
-        widget.onClose();
-      },
-      child: Container(
-        color: Colors.black.withOpacity(0.7),
-        child: Center(
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              return Opacity(
-                opacity: _opacityAnimation.value,
-                child: Transform.scale(
+    return Container(
+      color: Colors.black.withOpacity(0.7),
+      child: Stack(
+        children: [
+          // Confetti background
+          if (_showConfetti)
+            Positioned.fill(
+              child: ConfettiWidget(
+                style: ConfettiStyle.large,
+                intensity: 0.8,
+                isActive: _showConfetti,
+                colors: const [
+                  AppColors.velvetMist,
+                  AppColors.velvetPale,
+                  AppColors.velvetHighlight,
+                  Colors.white,
+                  Colors.yellow,
+                ],
+                onComplete: null, // Never auto-complete
+              ),
+            ),
+          
+          // Celebration content
+          Center(
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Transform.scale(
                   scale: _scaleAnimation.value,
                   child: _buildContent(),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -270,21 +250,6 @@ class _PersonalRecordCelebrationState extends State<PersonalRecordCelebration>
 
           const SizedBox(height: 16),
 
-          // Tap to dismiss note
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white.withOpacity(0.1),
-            ),
-            child: const Text(
-              'Tap anywhere to continue',
-              style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
-              ),
-            ),
-          ),
         ],
       ),
     );

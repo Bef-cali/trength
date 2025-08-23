@@ -1,4 +1,5 @@
 // lib/screens/active_workout_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/exercise_set.dart';
@@ -6,7 +7,7 @@ import '../providers/workout_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../theme/app_colors.dart';
 import '../widgets/exercise_set_card.dart';
-import '../widgets/rest_timer_widget.dart';
+import '../widgets/total_workout_timer_widget.dart';
 import '../widgets/progression_suggestion_chip.dart';
 import '../widgets/personal_record_celebration.dart';
 
@@ -29,6 +30,24 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
   int? _prOriginalReps;
   // Track if advanced options are shown in beginner mode
   bool _showAdvancedOptions = false;
+  // Timer for updating workout duration
+  Timer? _workoutTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Start timer to update workout duration every second
+    _workoutTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      // Force rebuild to update duration display
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _workoutTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,15 +96,10 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         children: [
           Column(
             children: [
-              // Rest timer
-              if (workoutProvider.isRestTimerActive || workoutProvider.restTimerSeconds > 0)
-                RestTimerWidget(
-                  seconds: workoutProvider.restTimerSeconds,
-                  isActive: workoutProvider.isRestTimerActive,
-                  onPause: workoutProvider.pauseRestTimer,
-                  onResume: workoutProvider.resumeRestTimer,
-                  onCancel: workoutProvider.cancelRestTimer,
-                ),
+              // Total workout timer
+              TotalWorkoutTimerWidget(
+                workoutDuration: workoutProvider.workoutDuration,
+              ),
 
               // Exercise list with sets
               Expanded(
@@ -197,24 +211,6 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                           setNumber: setIndex + 1,
                                           isPR: isPR,
                                           progressComparison: comparison,
-                                          onSetCompleted: (completed) {
-                                            workoutProvider.markSetComplete(
-                                              exerciseId, set.id, completed);
-
-                                            // Start rest timer if set was completed
-                                            if (completed) {
-                                              // Smart rest timer duration based on exercise and set type
-                                              final restDuration = _calculateRestDuration(
-                                                exerciseId, set, exerciseProvider);
-                                              workoutProvider.startRestTimer(restDuration);
-
-                                              // Check if this set is a PR after completion
-                                              if (!set.isWarmup &&
-                                                workoutProvider.isPersonalRecord(exerciseId, set)) {
-                                                _showPRCelebration(context, exercise.name, set);
-                                              }
-                                            }
-                                          },
                                           onSetEdited: (updatedSet) {
                                             workoutProvider.updateSet(
                                               exerciseId, updatedSet);
@@ -253,37 +249,76 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
                                     },
                                   ),
 
-                                  // Add set button (more compact)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12), // Less vertical padding
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: ElevatedButton.icon(
-                                            icon: const Icon(Icons.add, size: 18),
-                                            label: const Text('Add Set', style: TextStyle(fontSize: 14)),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: AppColors.velvetHighlight,
-                                              foregroundColor: Colors.white,
-                                              minimumSize: const Size.fromHeight(42), // Reduced height
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(8),
+                                  // Start/Done and Add Set buttons
+                                  Consumer<WorkoutProvider>(
+                                    builder: (context, workoutProvider, _) {
+                                      final exerciseState = workoutProvider.getExerciseState(exerciseId);
+                                      
+                                      return Padding(
+                                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                        child: Row(
+                                          children: [
+                                            // Start/Done Button
+                                            Expanded(
+                                              flex: 2,
+                                              child: ElevatedButton.icon(
+                                                icon: Icon(
+                                                  exerciseState == ExerciseState.notStarted 
+                                                    ? Icons.play_arrow 
+                                                    : exerciseState == ExerciseState.inProgress
+                                                      ? Icons.check
+                                                      : Icons.refresh,
+                                                  size: 18,
+                                                ),
+                                                label: Text(
+                                                  exerciseState == ExerciseState.notStarted 
+                                                    ? 'Start' 
+                                                    : exerciseState == ExerciseState.inProgress
+                                                      ? 'Done'
+                                                      : 'Reset',
+                                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                                ),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: exerciseState == ExerciseState.completed
+                                                    ? AppColors.velvetPale
+                                                    : exerciseState == ExerciseState.inProgress
+                                                      ? AppColors.royalVelvet
+                                                      : AppColors.velvetHighlight,
+                                                  foregroundColor: Colors.white,
+                                                  minimumSize: const Size.fromHeight(42),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ),
+                                                onPressed: () => _handleExerciseStateChange(workoutProvider, exerciseId, exerciseState),
                                               ),
                                             ),
-                                            onPressed: () => _addEmptySet(workoutProvider, exerciseId),
-                                          ),
+                                            
+                                            const SizedBox(width: 8),
+                                            
+                                            // Add Set Button (only show if exercise is in progress)
+                                            if (exerciseState == ExerciseState.inProgress) ...[
+                                              Expanded(
+                                                flex: 1,
+                                                child: ElevatedButton.icon(
+                                                  icon: const Icon(Icons.add, size: 16),
+                                                  label: const Text('Add', style: TextStyle(fontSize: 12)),
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: AppColors.royalVelvet,
+                                                    foregroundColor: Colors.white,
+                                                    minimumSize: const Size.fromHeight(42),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  onPressed: () => _addEmptySet(workoutProvider, exerciseId),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
-                                        if (sets.isNotEmpty) ...[
-                                          const SizedBox(width: 8),
-                                          IconButton(
-                                            icon: const Icon(Icons.content_copy, color: Colors.white70, size: 20),
-                                            onPressed: () => workoutProvider.duplicateLatestSet(exerciseId),
-                                            tooltip: 'Duplicate Last Set',
-                                            visualDensity: VisualDensity.compact,
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ],
@@ -952,45 +987,43 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
     );
   }
 
-  int _calculateRestDuration(String exerciseId, dynamic set, ExerciseProvider exerciseProvider) {
-    final exercise = exerciseProvider.getExerciseById(exerciseId);
-    
-    // If it's a warmup set, shorter rest
-    if (set.isWarmup) {
-      return 45; // 45 seconds for warmup sets
+  void _handleExerciseStateChange(WorkoutProvider workoutProvider, String exerciseId, ExerciseState currentState) {
+    switch (currentState) {
+      case ExerciseState.notStarted:
+        workoutProvider.startExercise(exerciseId);
+        break;
+      case ExerciseState.inProgress:
+        // Complete exercise and check for PRs
+        final prSets = workoutProvider.completeExercise(exerciseId);
+        
+        // Show PR celebrations for any PR sets
+        if (prSets.isNotEmpty) {
+          final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+          final exercise = exerciseProvider.getExerciseById(exerciseId);
+          
+          if (exercise != null) {
+            // Show celebration for the best PR set (highest 1RM)
+            ExerciseSet? bestPRSet;
+            double highestOneRM = 0;
+            
+            for (final prSet in prSets) {
+              final oneRMResult = workoutProvider.calculate1RM(prSet);
+              if (oneRMResult.oneRepMax > highestOneRM) {
+                highestOneRM = oneRMResult.oneRepMax;
+                bestPRSet = prSet;
+              }
+            }
+            
+            if (bestPRSet != null) {
+              _showPRCelebration(context, exercise.name, bestPRSet);
+            }
+          }
+        }
+        break;
+      case ExerciseState.completed:
+        workoutProvider.resetExerciseState(exerciseId);
+        break;
     }
-    
-    // Base rest on exercise category/type
-    if (exercise != null) {
-      final category = exercise.category.toLowerCase();
-      
-      // Compound movements get longer rest
-      if (_isCompoundExercise(category, exercise.name)) {
-        return 120; // 2 minutes for compound movements
-      }
-      
-      // Isolation movements get moderate rest
-      if (_isIsolationExercise(category)) {
-        return 60; // 1 minute for isolation
-      }
-    }
-    
-    // Default rest time
-    return 90; // 90 seconds default
-  }
-  
-  bool _isCompoundExercise(String category, String name) {
-    final compoundKeywords = ['squat', 'deadlift', 'bench', 'press', 'row', 'pull-up', 'chin-up'];
-    final compoundCategories = ['legs', 'back', 'chest'];
-    
-    final nameLower = name.toLowerCase();
-    return compoundKeywords.any((keyword) => nameLower.contains(keyword)) ||
-           compoundCategories.contains(category);
-  }
-  
-  bool _isIsolationExercise(String category) {
-    final isolationCategories = ['arms', 'shoulders', 'calves', 'abs'];
-    return isolationCategories.contains(category);
   }
 
   void _showPRCelebration(BuildContext context, String exerciseName, ExerciseSet set) {
@@ -1007,8 +1040,8 @@ class _ActiveWorkoutScreenState extends State<ActiveWorkoutScreen> {
         _prOriginalReps = set.reps;
       });
 
-      // Automatically dismiss the celebration after a few seconds
-      Future.delayed(const Duration(seconds: 4), () {
+      // Automatically dismiss the celebration after 12 seconds
+      Future.delayed(const Duration(seconds: 12), () {
         if (mounted && _showingPRCelebration) {
           setState(() {
             _showingPRCelebration = false;

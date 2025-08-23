@@ -7,15 +7,38 @@ import '../../models/active_workout.dart';
 import '../../theme/app_colors.dart';
 
 class GitHubCalendarWidget extends StatefulWidget {
-  const GitHubCalendarWidget({Key? key}) : super(key: key);
+  final DateTime? focusedDate;
+  final Function(DateTime)? onDateChanged;
+  
+  const GitHubCalendarWidget({
+    Key? key,
+    this.focusedDate,
+    this.onDateChanged,
+  }) : super(key: key);
 
   @override
   _GitHubCalendarWidgetState createState() => _GitHubCalendarWidgetState();
 }
 
 class _GitHubCalendarWidgetState extends State<GitHubCalendarWidget> {
-  DateTime _focusedDate = DateTime.now();
+  late DateTime _focusedDate;
   bool _isYearView = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDate = widget.focusedDate ?? DateTime.now();
+  }
+
+  @override
+  void didUpdateWidget(GitHubCalendarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusedDate != null && widget.focusedDate != _focusedDate) {
+      setState(() {
+        _focusedDate = widget.focusedDate!;
+      });
+    }
+  }
 
   void _toggleView() {
     setState(() {
@@ -23,31 +46,11 @@ class _GitHubCalendarWidgetState extends State<GitHubCalendarWidget> {
     });
   }
 
-  void _previousPeriod() {
-    setState(() {
-      if (_isYearView) {
-        _focusedDate = DateTime(_focusedDate.year - 1, _focusedDate.month, 1);
-      } else {
-        _focusedDate = DateTime(_focusedDate.year, _focusedDate.month - 1, 1);
-      }
-    });
-  }
-
-  void _nextPeriod() {
-    setState(() {
-      if (_isYearView) {
-        _focusedDate = DateTime(_focusedDate.year + 1, _focusedDate.month, 1);
-      } else {
-        _focusedDate = DateTime(_focusedDate.year, _focusedDate.month + 1, 1);
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildCalendarHeader(),
+        // Header removed - month display handled by History tab header
         Expanded(
           child: _isYearView ? _buildYearCalendar() : _buildMonthCalendar(),
         ),
@@ -56,50 +59,6 @@ class _GitHubCalendarWidgetState extends State<GitHubCalendarWidget> {
     );
   }
 
-  Widget _buildCalendarHeader() {
-    final titleText = _isYearView
-        ? "${_focusedDate.year}"
-        : DateFormat('MMMM yyyy').format(_focusedDate);
-
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            color: Colors.white,
-            onPressed: _previousPeriod,
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                titleText,
-                style: const TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              IconButton(
-                icon: Icon(_isYearView ? Icons.calendar_month : Icons.calendar_view_week),
-                color: Colors.white,
-                onPressed: _toggleView,
-                tooltip: _isYearView ? 'Switch to month view' : 'Switch to year view',
-              ),
-            ],
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            color: Colors.white,
-            onPressed: _nextPeriod,
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildMonthCalendar() {
     // Get the workouts from the provider
@@ -272,10 +231,13 @@ class _GitHubCalendarWidgetState extends State<GitHubCalendarWidget> {
 
         return InkWell(
           onTap: () {
+            final newDate = DateTime(_focusedDate.year, month, 1);
             setState(() {
-              _focusedDate = DateTime(_focusedDate.year, month, 1);
+              _focusedDate = newDate;
               _isYearView = false;
             });
+            // Notify parent of date change
+            widget.onDateChanged?.call(newDate);
           },
           child: MonthCell(
             month: DateFormat('MMM').format(DateTime(_focusedDate.year, month)),

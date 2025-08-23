@@ -5,7 +5,7 @@ import '../providers/workout_provider.dart';
 import '../providers/exercise_provider.dart';
 import '../theme/app_colors.dart';
 import '../screens/active_workout_screen.dart';
-import '../screens/workout_history_screen.dart';
+import '../screens/analytics/analytics_dashboard_screen.dart';
 
 class WorkoutModule extends StatelessWidget {
   const WorkoutModule({Key? key}) : super(key: key);
@@ -52,7 +52,7 @@ class WorkoutModule extends StatelessWidget {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const WorkoutHistoryScreen(),
+                          builder: (context) => const AnalyticsDashboardScreen(),
                         ),
                       );
                     },
@@ -228,55 +228,6 @@ class WorkoutModule extends StatelessWidget {
                   
                   const SizedBox(height: 12),
                   
-                  // Rest timer status (if active)
-                  Consumer<WorkoutProvider>(
-                    builder: (context, workoutProvider, _) {
-                      if (workoutProvider.isRestTimerActive || workoutProvider.restTimerSeconds > 0) {
-                        final minutes = workoutProvider.restTimerSeconds ~/ 60;
-                        final seconds = workoutProvider.restTimerSeconds % 60;
-                        final timeRemaining = '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
-                        
-                        return Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppColors.royalVelvet.withOpacity(0.5),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: workoutProvider.isRestTimerActive 
-                                      ? Colors.orange.withOpacity(0.2)
-                                      : Colors.green.withOpacity(0.2),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Icon(
-                                  workoutProvider.isRestTimerActive ? Icons.timer : Icons.check_circle,
-                                  color: workoutProvider.isRestTimerActive ? Colors.orange : Colors.green,
-                                  size: 12,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                workoutProvider.isRestTimerActive 
-                                    ? 'Rest Timer: $timeRemaining'
-                                    : 'Rest Complete',
-                                style: TextStyle(
-                                  fontFamily: 'Quicksand',
-                                  fontSize: 12,
-                                  color: workoutProvider.isRestTimerActive ? Colors.orange : Colors.green,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    },
-                  ),
                 ],
               ),
             ),
@@ -439,7 +390,7 @@ class WorkoutModule extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => const WorkoutHistoryScreen(),
+                builder: (context) => const AnalyticsDashboardScreen(),
               ),
             );
           },

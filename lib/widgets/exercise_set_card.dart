@@ -8,7 +8,7 @@ class ExerciseSetCard extends StatefulWidget {
   final String exerciseId;
   final ExerciseSet set;
   final int setNumber;
-  final Function(bool) onSetCompleted;
+  final Function(bool)? onSetCompleted;
   final Function(ExerciseSet) onSetEdited;
   final VoidCallback onSetDeleted;
 
@@ -22,7 +22,7 @@ class ExerciseSetCard extends StatefulWidget {
     required this.exerciseId,
     required this.set,
     required this.setNumber,
-    required this.onSetCompleted,
+    this.onSetCompleted,
     required this.onSetEdited,
     required this.onSetDeleted,
     this.isPR = false,
@@ -200,19 +200,7 @@ class _ExerciseSetCardState extends State<ExerciseSetCard> {
                   if (widget.progressComparison != null && isCompleted)
                     _buildProgressIndicator(),
 
-                  const SizedBox(width: 8),
-
-                  // Completed checkbox
-                  Transform.scale(
-                    scale: 0.9, // Slightly smaller
-                    child: Checkbox(
-                      value: isCompleted,
-                      onChanged: (value) => widget.onSetCompleted(value ?? false),
-                      activeColor: AppColors.velvetPale,
-                      checkColor: Colors.white,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                  ),
+                  const SizedBox(width: 16),
 
                   // Delete button
                   IconButton(

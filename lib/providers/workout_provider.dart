@@ -9,6 +9,12 @@ import '../models/workout_split.dart';
 import '../repositories/workout_repository.dart';
 import '../utils/one_rep_max_calculator.dart';
 
+enum ExerciseState {
+  notStarted,
+  inProgress,
+  completed,
+}
+
 class WorkoutProvider with ChangeNotifier {
   final WorkoutRepository _repository;
   final String _settingsBoxName = 'settings';
@@ -16,8 +22,9 @@ class WorkoutProvider with ChangeNotifier {
   // Active workout related properties
   ActiveWorkout? _currentWorkout;
   String? _currentExerciseId;
-  int _restTimerSeconds = 0;
-  bool _isRestTimerActive = false;
+  
+  // Exercise state tracking (exerciseId -> state)
+  Map<String, ExerciseState> _exerciseStates = {};
 
   // Progressive overload settings
   Map<String, dynamic>? _progressionSettings;
@@ -59,10 +66,14 @@ class WorkoutProvider with ChangeNotifier {
   // Getters for current state
   ActiveWorkout? get currentWorkout => _currentWorkout;
   String? get currentExerciseId => _currentExerciseId;
-  int get restTimerSeconds => _restTimerSeconds;
-  bool get isRestTimerActive => _isRestTimerActive;
   bool get isInitialized => _isInitialized;
   bool get isBeginnerMode => _isBeginnerMode;
+  
+  // Get workout duration since start
+  Duration get workoutDuration {
+    if (_currentWorkout == null) return Duration.zero;
+    return DateTime.now().difference(_currentWorkout!.startTime);
+  }
 
   // Workout initialization methods
 
@@ -72,6 +83,7 @@ class WorkoutProvider with ChangeNotifier {
       startTime: DateTime.now(),
     );
 
+    _exerciseStates.clear();
     await _repository.saveActiveWorkout(_currentWorkout!);
     notifyListeners();
   }
@@ -94,6 +106,7 @@ class WorkoutProvider with ChangeNotifier {
       _currentExerciseId = exerciseIds.first;
     }
 
+    _exerciseStates.clear();
     await _repository.saveActiveWorkout(_currentWorkout!);
     notifyListeners();
   }
@@ -363,48 +376,82 @@ class WorkoutProvider with ChangeNotifier {
     }
   }
 
-  // Rest timer methods
-
-  void startRestTimer(int seconds) {
-    _restTimerSeconds = seconds;
-    _isRestTimerActive = true;
-    notifyListeners();
-
-    // Timer logic would be implemented here
-    // For simplicity, we'll just use a Future.delayed approach
-    _runTimer();
+  // Exercise state management methods
+  
+  ExerciseState getExerciseState(String exerciseId) {
+    return _exerciseStates[exerciseId] ?? ExerciseState.notStarted;
   }
-
-  void pauseRestTimer() {
-    _isRestTimerActive = false;
-    notifyListeners();
-  }
-
-  void resumeRestTimer() {
-    if (_restTimerSeconds > 0) {
-      _isRestTimerActive = true;
-      notifyListeners();
-      _runTimer();
-    }
-  }
-
-  void cancelRestTimer() {
-    _restTimerSeconds = 0;
-    _isRestTimerActive = false;
-    notifyListeners();
-  }
-
-  Future<void> _runTimer() async {
-    while (_isRestTimerActive && _restTimerSeconds > 0) {
-      await Future.delayed(const Duration(seconds: 1));
-      if (_isRestTimerActive) {
-        _restTimerSeconds--;
-        notifyListeners();
+  
+  void startExercise(String exerciseId) {
+    // Add 3 empty sets for the exercise
+    if (_currentWorkout != null) {
+      final currentSets = _currentWorkout!.exerciseSets[exerciseId] ?? [];
+      
+      // Add 3 empty sets
+      for (int i = 0; i < 3; i++) {
+        final newSet = ExerciseSet(
+          weight: 0,
+          reps: 0,
+          rpe: null,
+        );
+        currentSets.add(newSet);
       }
+      
+      _currentWorkout!.exerciseSets[exerciseId] = currentSets;
+      _exerciseStates[exerciseId] = ExerciseState.inProgress;
+      
+      _repository.saveActiveWorkout(_currentWorkout!);
+      notifyListeners();
     }
-
-    if (_restTimerSeconds == 0) {
-      _isRestTimerActive = false;
+  }
+  
+  List<ExerciseSet> completeExercise(String exerciseId) {
+    List<ExerciseSet> prSets = [];
+    
+    if (_currentWorkout != null) {
+      final sets = _currentWorkout!.exerciseSets[exerciseId] ?? [];
+      
+      // Mark all sets as completed and check for PRs
+      for (var set in sets) {
+        if (set.weight > 0 && set.reps > 0) {
+          final updatedSet = set.copyWith(
+            completed: true,
+            rpe: set.rpe ?? 8.0, // Default RPE
+          );
+          final index = sets.indexOf(set);
+          sets[index] = updatedSet;
+          
+          // Check if this set is a PR
+          if (!set.isWarmup && isPersonalRecord(exerciseId, updatedSet)) {
+            prSets.add(updatedSet);
+          }
+        }
+      }
+      
+      _exerciseStates[exerciseId] = ExerciseState.completed;
+      
+      _repository.saveActiveWorkout(_currentWorkout!);
+      notifyListeners();
+    }
+    
+    return prSets;
+  }
+  
+  void resetExerciseState(String exerciseId) {
+    if (_currentWorkout != null) {
+      final sets = _currentWorkout!.exerciseSets[exerciseId] ?? [];
+      
+      // Clear completion status from all sets but keep the sets
+      for (int i = 0; i < sets.length; i++) {
+        final set = sets[i];
+        final updatedSet = set.copyWith(completed: false);
+        sets[i] = updatedSet;
+      }
+      
+      // Set state to inProgress so user sees "Done" + "Add Set" buttons
+      _exerciseStates[exerciseId] = ExerciseState.inProgress;
+      
+      _repository.saveActiveWorkout(_currentWorkout!);
       notifyListeners();
     }
   }
@@ -420,8 +467,7 @@ class WorkoutProvider with ChangeNotifier {
     // Reset current state
     _currentWorkout = null;
     _currentExerciseId = null;
-    _restTimerSeconds = 0;
-    _isRestTimerActive = false;
+    _exerciseStates.clear();
 
     notifyListeners();
   }
@@ -434,8 +480,7 @@ class WorkoutProvider with ChangeNotifier {
     // Reset current state
     _currentWorkout = null;
     _currentExerciseId = null;
-    _restTimerSeconds = 0;
-    _isRestTimerActive = false;
+    _exerciseStates.clear();
 
     notifyListeners();
   }

@@ -29,6 +29,8 @@ dependencies:
   intl: ^0.18.1
 
   cupertino_icons: ^1.0.2
+  salomon_bottom_bar: ^3.3.2
+  confetti: ^0.8.0
 
 dev_dependencies:
   flutter_test:

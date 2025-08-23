@@ -2,11 +2,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../providers/workout_provider.dart';
 import '../../providers/exercise_provider.dart';
+import '../../models/active_workout.dart';
+import '../../models/exercise_set.dart';
 import '../../theme/app_colors.dart';
 import '../../widgets/analytics/strength_chart_widget.dart';
 import '../../widgets/analytics/pr_timeline_widget.dart';
+import '../../widgets/history/github_calendar_widget.dart';
+import '../../widgets/history/history_filter_widget.dart';
+import '../../widgets/history/workout_timeline_widget.dart';
 import '../../utils/one_rep_max_calculator.dart';
 
 class AnalyticsDashboardScreen extends StatefulWidget {
@@ -17,44 +23,147 @@ class AnalyticsDashboardScreen extends StatefulWidget {
       _AnalyticsDashboardScreenState();
 }
 
-class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
+class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   String _timeRange = 'month'; // 'week', 'month', 'year', 'all'
   bool _isLoading = false;
+  int _historyViewMode = 0; // 0 = List, 1 = Calendar
+  
+  // History-related state variables
+  DateTime? _startDate;
+  DateTime? _endDate;
+  String? _splitId;
+  String? _exerciseId;
+  DateTime _calendarFocusedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _initializeFocusedDate();
+  }
+
+  void _initializeFocusedDate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+      final workouts = workoutProvider.getWorkoutHistory();
+      
+      if (workouts.isNotEmpty) {
+        final mostRecentWorkout = workouts.first;
+        setState(() {
+          _calendarFocusedDate = DateTime(
+            mostRecentWorkout.startTime.year,
+            mostRecentWorkout.startTime.month,
+            1,
+          );
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.deepVelvet,
-      appBar: AppBar(
-        title: const Text(
-          'Analytics',
-          style: TextStyle(
-            fontFamily: 'Quicksand',
-            fontWeight: FontWeight.bold,
+      body: Column(
+        children: [
+          // Custom header with tabs
+          Container(
+            padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white.withOpacity(0.6),
+                    labelStyle: const TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 18,
+                      fontWeight: FontWeight.normal,
+                    ),
+                    indicator: const UnderlineTabIndicator(
+                      borderSide: BorderSide(color: Colors.white, width: 2),
+                    ),
+                    dividerColor: Colors.transparent,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    tabs: const [
+                      Tab(text: 'ANALYTICS'),
+                      Tab(text: 'HISTORY'),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Context-aware action button
+                if (_tabController.index == 0)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.calendar_today, color: Colors.white, size: 24),
+                    onSelected: (value) {
+                      setState(() {
+                        _timeRange = value;
+                      });
+                    },
+                    itemBuilder: (context) => [
+                      _buildPopupMenuItem('week', 'This Week'),
+                      _buildPopupMenuItem('month', 'This Month'),
+                      _buildPopupMenuItem('year', 'This Year'),
+                      _buildPopupMenuItem('all', 'All Time'),
+                    ],
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                  )
+                else
+                  IconButton(
+                    onPressed: () {
+                      _showHistoryFilterOptions(context);
+                    },
+                    icon: const Icon(
+                      Icons.filter_list,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    padding: const EdgeInsets.all(8),
+                    constraints: const BoxConstraints(
+                      minWidth: 40,
+                      minHeight: 40,
+                    ),
+                  ),
+              ],
+            ),
           ),
-        ),
-        backgroundColor: AppColors.royalVelvet,
-        elevation: 4, // Added elevation for visual separation
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.calendar_today),
-            onSelected: (value) {
-              setState(() {
-                _timeRange = value;
-              });
-            },
-            itemBuilder: (context) => [
-              _buildPopupMenuItem('week', 'This Week'),
-              _buildPopupMenuItem('month', 'This Month'),
-              _buildPopupMenuItem('year', 'This Year'),
-              _buildPopupMenuItem('all', 'All Time'),
-            ],
+          
+          // Active filters indicator for history tab
+          if (_tabController.index == 1 && (_startDate != null || _endDate != null || _splitId != null || _exerciseId != null))
+            _buildActiveFiltersBar(),
+          
+          // Tab content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildAnalyticsTab(),
+                _buildHistoryTab(),
+              ],
+            ),
           ),
         ],
       ),
-      body: _isLoading
-          ? _buildLoadingState()
-          : _buildBody(),
     );
   }
 
@@ -103,7 +212,219 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildAnalyticsTab() {
+    if (_isLoading) {
+      return _buildLoadingState();
+    }
+    return _buildAnalyticsBody();
+  }
+
+  Widget _buildHistoryTab() {
+    return Consumer<WorkoutProvider>(
+      builder: (context, workoutProvider, child) {
+        return Column(
+          children: [
+            // Month name and toggle for List/Calendar view
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Month name with navigation arrows for both views
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: _previousMonth,
+                        icon: const Icon(Icons.chevron_left, color: Colors.white),
+                        iconSize: 20,
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _getCurrentDisplayMonth(),
+                        style: const TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: _nextMonth,
+                        icon: const Icon(Icons.chevron_right, color: Colors.white),
+                        iconSize: 20,
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                      ),
+                    ],
+                  ),
+                  
+                  // View toggle
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.royalVelvet,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withOpacity(0.2)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildToggleButton(
+                          svgPath: 'assets/images/list.svg',
+                          isSelected: _historyViewMode == 0,
+                          onTap: () => setState(() => _historyViewMode = 0),
+                          isFirst: true,
+                        ),
+                        _buildToggleButton(
+                          svgPath: 'assets/images/calendar-days.svg',
+                          isSelected: _historyViewMode == 1,
+                          onTap: () => setState(() => _historyViewMode = 1),
+                          isLast: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Content based on selected view
+            Expanded(
+              child: _historyViewMode == 0 
+                ? _buildHistoryListView()
+                : _buildHistoryCalendarView(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildToggleButton({
+    required String svgPath,
+    required bool isSelected,
+    required VoidCallback onTap,
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.velvetMist : Colors.transparent,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(isFirst ? 8 : 0),
+            bottomLeft: Radius.circular(isFirst ? 8 : 0),
+            topRight: Radius.circular(isLast ? 8 : 0),
+            bottomRight: Radius.circular(isLast ? 8 : 0),
+          ),
+        ),
+        child: SvgPicture.asset(
+          svgPath,
+          width: 18,
+          height: 18,
+          colorFilter: ColorFilter.mode(
+            isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+            BlendMode.srcIn,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _getCurrentDisplayMonth() {
+    final monthNames = [
+      'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+      'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+    ];
+    
+    // Always use the focused date for both views
+    return monthNames[_calendarFocusedDate.month - 1];
+  }
+
+  void _previousMonth() {
+    setState(() {
+      _calendarFocusedDate = DateTime(_calendarFocusedDate.year, _calendarFocusedDate.month - 1, 1);
+    });
+  }
+
+  void _nextMonth() {
+    setState(() {
+      _calendarFocusedDate = DateTime(_calendarFocusedDate.year, _calendarFocusedDate.month + 1, 1);
+    });
+  }
+
+  void _onCalendarDateChanged(DateTime date) {
+    setState(() {
+      _calendarFocusedDate = date;
+    });
+  }
+
+  void _showHistoryFilterOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.royalVelvet,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return HistoryFilterWidget(
+          initialStartDate: _startDate,
+          initialEndDate: _endDate,
+          initialSplitId: _splitId,
+          initialExerciseId: _exerciseId,
+          onApplyFilters: _applyHistoryFilters,
+        );
+      },
+    );
+  }
+
+  Widget _buildActiveFiltersBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: AppColors.velvetHighlight.withOpacity(0.2),
+      child: Row(
+        children: [
+          Icon(
+            Icons.filter_list,
+            size: 16,
+            color: AppColors.velvetPale,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Filters applied',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 14,
+                color: AppColors.velvetPale,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: _clearHistoryFilters,
+            child: Text(
+              'Clear',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.velvetMist,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsBody() {
     return Consumer2<WorkoutProvider, ExerciseProvider>(
       builder: (context, workoutProvider, exerciseProvider, child) {
         final workouts = _getFilteredWorkouts(workoutProvider);
@@ -181,20 +502,13 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
 
                 const SizedBox(height: 20),
 
-                // Summary cards
-                _buildSummaryCards(analyticsData),
-
-                const SizedBox(height: 24),
-                const Divider(color: Colors.white24, height: 1),
-                const SizedBox(height: 24),
-
-                // Strength Progress - moved to top priority
-                _buildSectionHeader('Strength Progress'),
+                // Personal Records - moved to top priority
+                _buildSectionHeader('Personal Records'),
                 Container(
-                  height: 300, // Increased height since it's the main focus
+                  height: 300, // Increased height since it's now the main focus
                   margin: const EdgeInsets.only(top: 12, bottom: 24),
-                  child: StrengthChartWidget(
-                    strengthProgressData: analyticsData['strengthProgress'] as List<Map<String, dynamic>>?,
+                  child: PRTimelineWidget(
+                    personalRecords: analyticsData['recentPRs'] as List<Map<String, dynamic>>?,
                   ),
                 ),
 
@@ -202,13 +516,13 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
                 const Divider(color: Colors.white24, height: 1),
                 const SizedBox(height: 24),
 
-                // Personal Records
-                _buildSectionHeader('Personal Records'),
+                // Strength Progress - moved to second priority
+                _buildSectionHeader('Strength Progress'),
                 Container(
-                  height: 250, // Increased height for better card layout
+                  height: 250, // Slightly smaller for secondary chart
                   margin: const EdgeInsets.only(top: 12, bottom: 24),
-                  child: PRTimelineWidget(
-                    personalRecords: analyticsData['recentPRs'] as List<Map<String, dynamic>>?,
+                  child: StrengthChartWidget(
+                    strengthProgressData: analyticsData['strengthProgress'] as List<Map<String, dynamic>>?,
                   ),
                 ),
 
@@ -613,106 +927,6 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
     );
   }
 
-  Widget _buildSummaryCards(Map<String, dynamic> data) {
-    final totalWorkouts = data['totalWorkouts'] ?? 0;
-    final totalVolume = data['totalVolume'] ?? 0.0;
-    final exercisesUsed = data['exercisesUsed'] ?? 0;
-    final avgDuration = data['avgDuration'] as Duration?;
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.4, // Slightly taller for better proportions
-      children: [
-        _buildEnhancedSummaryCard(
-          'Total Workouts',
-          totalWorkouts.toString(),
-          Icons.fitness_center,
-        ),
-        _buildEnhancedSummaryCard(
-          'Total Volume',
-          '${totalVolume.toStringAsFixed(0)}kg',
-          Icons.bar_chart,
-        ),
-        _buildEnhancedSummaryCard(
-          'Exercises Used',
-          exercisesUsed.toString(),
-          Icons.sports_gymnastics,
-        ),
-        _buildEnhancedSummaryCard(
-          'Avg Duration',
-          avgDuration != null
-              ? '${avgDuration.inMinutes}min'
-              : '0min',
-          Icons.timer,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEnhancedSummaryCard(
-    String title,
-    String value,
-    IconData icon,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.royalVelvet,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowBlack.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(
-            icon,
-            color: AppColors.velvetPale,
-            size: 32,
-          ),
-          const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white.withOpacity(0.7),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Removed _buildFrequencyCard and _buildDayFrequencyBar methods
 
   String _getDayName(int weekday) {
     switch (weekday) {
@@ -748,5 +962,652 @@ class _AnalyticsDashboardScreenState extends State<AnalyticsDashboardScreen> {
       default:
         return '';
     }
+  }
+
+  // History-related methods
+  void _applyHistoryFilters({
+    DateTime? startDate,
+    DateTime? endDate,
+    String? splitId,
+    String? exerciseId,
+  }) {
+    setState(() {
+      _startDate = startDate;
+      _endDate = endDate;
+      _splitId = splitId;
+      _exerciseId = exerciseId;
+    });
+  }
+
+  void _clearHistoryFilters() {
+    setState(() {
+      _startDate = null;
+      _endDate = null;
+      _splitId = null;
+      _exerciseId = null;
+    });
+  }
+
+  Widget _buildHistoryListView() {
+    return Consumer<WorkoutProvider>(
+      builder: (context, workoutProvider, child) {
+        final allWorkouts = workoutProvider.getWorkoutHistory(
+          startDate: _startDate,
+          endDate: _endDate,
+          splitId: _splitId,
+          exerciseId: _exerciseId,
+        );
+
+        // Filter workouts to only show those from the focused month
+        final workouts = allWorkouts.where((workout) {
+          return workout.startTime.year == _calendarFocusedDate.year &&
+                 workout.startTime.month == _calendarFocusedDate.month;
+        }).toList();
+
+        if (workouts.isEmpty) {
+          return _buildHistoryEmptyState();
+        }
+
+        return WorkoutTimelineWidget(
+          workouts: workouts,
+          onWorkoutTap: (workout) => _showWorkoutDetails(context, workout),
+        );
+      },
+    );
+  }
+
+  Widget _buildHistoryCalendarView() {
+    return GitHubCalendarWidget(
+      focusedDate: _calendarFocusedDate,
+      onDateChanged: _onCalendarDateChanged,
+    );
+  }
+
+  Widget _buildHistoryEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.history,
+            size: 64,
+            color: AppColors.velvetLight.withOpacity(0.5),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No workout history yet',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.velvetLight,
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (_startDate != null || _endDate != null || _splitId != null || _exerciseId != null)
+            Text(
+              'Try removing some filters',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 14,
+                color: AppColors.velvetLight.withOpacity(0.7),
+              ),
+            )
+          else
+            Text(
+              'Complete your first workout to see it here',
+              style: TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 14,
+                color: AppColors.velvetLight.withOpacity(0.7),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+
+  String _formatDuration(Duration duration) {
+    if (duration.inHours > 0) {
+      return '${duration.inHours}h ${(duration.inMinutes % 60).toString().padLeft(2, '0')}m';
+    } else {
+      return '${duration.inMinutes}m ${(duration.inSeconds % 60).toString().padLeft(2, '0')}s';
+    }
+  }
+
+  void _showWorkoutDetails(BuildContext context, ActiveWorkout workout) {
+    final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+    final workoutProvider = Provider.of<WorkoutProvider>(context, listen: false);
+
+    // Calculate total volume
+    double totalVolume = 0;
+    Map<String, double> muscleGroupVolume = {};
+
+    workout.exerciseSets.forEach((exerciseId, sets) {
+      final exercise = exerciseProvider.getExerciseById(exerciseId);
+      if (exercise != null) {
+        for (var set in sets) {
+          if (set.completed && !set.isWarmup) {
+            final setVolume = set.weight * set.reps;
+            totalVolume += setVolume;
+
+            // Add volume to primary muscle groups
+            for (var muscle in exercise.primaryMuscles) {
+              muscleGroupVolume[muscle] = (muscleGroupVolume[muscle] ?? 0) + setVolume;
+            }
+          }
+        }
+      }
+    });
+
+    // Get PR count for this workout
+    int prCount = 0;
+    for (var exerciseId in workout.exerciseSets.keys) {
+      final sets = workout.exerciseSets[exerciseId] ?? [];
+      for (var set in sets) {
+        if (set.completed && !set.isWarmup) {
+          if (workoutProvider.isPersonalRecord(exerciseId, set)) {
+            prCount++;
+            break;  // Count only one PR per exercise
+          }
+        }
+      }
+    }
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.royalVelvet,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.8,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 8, bottom: 16),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Workout name and date
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    children: [
+                      // Centered workout name
+                      Center(
+                        child: Text(
+                          workout.name,
+                          style: const TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      // Left-aligned date
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          DateFormat('EEE, MMM d, y').format(workout.startTime),
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 16,
+                            color: AppColors.velvetPale,
+                          ),
+                        ),
+                      ),
+
+                      // Time and duration
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${DateFormat('h:mm a').format(workout.startTime)} - ',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            Text(
+                              workout.endTime != null
+                                  ? DateFormat('h:mm a').format(workout.endTime!)
+                                  : 'In Progress',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                            Text(
+                              ' (${_formatDuration(workout.duration)})',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 14,
+                                color: Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Analytics summary
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.deepVelvet,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Workout Summary',
+                        style: TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.velvetPale,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildAnalyticItem('Total Volume', '${totalVolume.toStringAsFixed(0)} kg'),
+                          _buildAnalyticItem('Exercises', workout.exerciseSets.length.toString()),
+                          _buildAnalyticItem('PRs', prCount.toString()),
+                        ],
+                      ),
+
+                      // Top muscles worked
+                      if (muscleGroupVolume.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        Text(
+                          'Top Muscles Worked',
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            for (var entry in muscleGroupVolume.entries.toList()
+                              ..sort((a, b) => b.value.compareTo(a.value))
+                              ..take(3))
+                            Expanded(
+                              child: _buildMuscleVolumeItem(
+                                entry.key,
+                                entry.value,
+                                totalVolume,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+                const Divider(color: Colors.white24),
+
+                // Exercise list
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: workout.exerciseSets.length,
+                    itemBuilder: (context, index) {
+                      final exerciseId = workout.exerciseSets.keys.elementAt(index);
+                      final sets = workout.exerciseSets[exerciseId] ?? [];
+                      final exercise = exerciseProvider.getExerciseById(exerciseId);
+
+                      // Calculate exercise volume
+                      double exerciseVolume = 0;
+                      for (var set in sets) {
+                        if (set.completed && !set.isWarmup) {
+                          exerciseVolume += set.weight * set.reps;
+                        }
+                      }
+
+                      // Check if any of the sets is a PR
+                      bool hasPR = false;
+                      for (var set in sets) {
+                        if (set.completed && !set.isWarmup) {
+                          if (workoutProvider.isPersonalRecord(exerciseId, set)) {
+                            hasPR = true;
+                            break;
+                          }
+                        }
+                      }
+
+                      return _buildExerciseItem(
+                        exercise?.name ?? 'Unknown Exercise',
+                        sets,
+                        exerciseVolume,
+                        hasPR,
+                      );
+                    },
+                  ),
+                ),
+
+                // Notes if any
+                if (workout.notes != null && workout.notes!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Notes',
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          workout.notes!,
+                          style: TextStyle(
+                            fontFamily: 'Quicksand',
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildAnalyticItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontFamily: 'Quicksand',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Quicksand',
+            fontSize: 12,
+            color: Colors.white.withOpacity(0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMuscleVolumeItem(String muscle, double volume, double totalVolume) {
+    final percentage = (volume / totalVolume * 100).toStringAsFixed(0);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Column(
+        children: [
+          Text(
+            muscle,
+            style: const TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.velvetMist.withOpacity(0.2),
+                    width: 3,
+                  ),
+                ),
+              ),
+              Text(
+                '$percentage%',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.velvetPale,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${volume.toStringAsFixed(0)} kg',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 10,
+              color: Colors.white.withOpacity(0.7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExerciseItem(String exerciseName, List<ExerciseSet> sets, double volume, bool hasPR) {
+    final completedSets = sets.where((set) => set.completed).length;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Exercise name and set count
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    Text(
+                      exerciseName,
+                      style: const TextStyle(
+                        fontFamily: 'Quicksand',
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (hasPR)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.velvetMist,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'PR',
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              Text(
+                '${volume.toStringAsFixed(0)} kg · $completedSets/${sets.length} sets',
+                style: TextStyle(
+                  fontFamily: 'Quicksand',
+                  fontSize: 14,
+                  color: AppColors.velvetPale,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Sets table
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.deepVelvet,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 32, child: Center(child: Text('Set', style: TextStyle(fontFamily: 'Quicksand', fontSize: 12, color: Colors.white70)))),
+                      const SizedBox(width: 8),
+                      const Expanded(child: Text('Weight', style: TextStyle(fontFamily: 'Quicksand', fontSize: 12, color: Colors.white70))),
+                      const SizedBox(width: 8),
+                      const Expanded(child: Text('Reps', style: TextStyle(fontFamily: 'Quicksand', fontSize: 12, color: Colors.white70))),
+                      const SizedBox(width: 8),
+                      const Expanded(child: Text('RPE', style: TextStyle(fontFamily: 'Quicksand', fontSize: 12, color: Colors.white70))),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1, color: Colors.white24),
+
+                // Set rows
+                ...sets.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final set = entry.value;
+
+                  // Skip sets that weren't completed
+                  if (!set.completed) return const SizedBox.shrink();
+
+                  final bgColor = index.isEven
+                      ? Colors.transparent
+                      : AppColors.royalVelvet.withOpacity(0.3);
+
+                  Color textColor = Colors.white;
+                  if (set.isWarmup) {
+                    textColor = Colors.white70;
+                  } else if (set.isDropSet) {
+                    textColor = AppColors.velvetPale;
+                  }
+
+                  return Container(
+                    color: bgColor,
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        // Set number
+                        SizedBox(
+                          width: 32,
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(
+                                fontFamily: 'Quicksand',
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Weight
+                        Expanded(
+                          child: Text(
+                            '${set.weight} ${set.weightUnit}',
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Reps
+                        Expanded(
+                          child: Text(
+                            '${set.reps}',
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 14,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // RPE
+                        Expanded(
+                          child: Text(
+                            set.rpe?.toString() ?? '-',
+                            style: TextStyle(
+                              fontFamily: 'Quicksand',
+                              fontSize: 14,
+                              color: textColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

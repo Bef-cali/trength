@@ -19,6 +19,7 @@ class ExerciseBrowseScreen extends StatefulWidget {
 class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  String? _selectedMuscleGroup;
 
   @override
   void initState() {
@@ -43,27 +44,53 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
             padding: const EdgeInsets.only(top: 40, left: 16, right: 16, bottom: 16),
             child: Row(
               children: [
-                TabBar(
-                  controller: _tabController,
-                  labelColor: Colors.white,
-                  unselectedLabelColor: Colors.white.withOpacity(0.6),
-                  labelStyle: const TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+                Expanded(
+                  child: TabBar(
+                    controller: _tabController,
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white.withOpacity(0.6),
+                    labelStyle: const TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 18,
+                      fontWeight: FontWeight.normal,
+                    ),
+                    indicator: const UnderlineTabIndicator(
+                      borderSide: BorderSide(color: Colors.white, width: 2),
+                    ),
+                    dividerColor: Colors.transparent,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.start,
+                    tabs: const [
+                      Tab(text: 'SPLIT'),
+                      Tab(text: 'EXERCISES'),
+                    ],
                   ),
-                  unselectedLabelStyle: const TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 18,
-                    fontWeight: FontWeight.normal,
+                ),
+                const SizedBox(width: 16),
+                // Context-aware plus icon
+                IconButton(
+                  onPressed: () {
+                    if (_tabController.index == 0) {
+                      _showAddSplitModal();
+                    } else {
+                      _showAddExerciseModal();
+                    }
+                  },
+                  icon: const Icon(
+                    Icons.add,
+                    color: Colors.white,
+                    size: 24,
                   ),
-                  indicator: const BoxDecoration(), // Remove indicator
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  tabs: const [
-                    Tab(text: 'SPLIT'),
-                    Tab(text: 'EXERCISES'),
-                  ],
+                  padding: const EdgeInsets.all(8),
+                  constraints: const BoxConstraints(
+                    minWidth: 40,
+                    minHeight: 40,
+                  ),
                 ),
               ],
             ),
@@ -86,105 +113,110 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
   Widget _buildExercisesTab() {
     return Scaffold(
       backgroundColor: AppColors.deepVelvet,
-      body: Column(
-        children: [
-          // Filter dropdown
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: _showFiltersBottomSheet,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.royalVelvet,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Colors.white.withOpacity(0.7),
-                          size: 16,
-                        ),
-                        const SizedBox(width: 4),
-                        Consumer<ExerciseProvider>(
-                          builder: (context, exerciseProvider, child) {
-                            return Text(
-                              'All(${exerciseProvider.exercises.length})',
-                              style: TextStyle(
-                                fontFamily: 'Quicksand',
-                                fontSize: 14,
-                                color: Colors.white.withOpacity(0.7),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+      body: _selectedMuscleGroup == null 
+        ? _buildMuscleGroupFilter()
+        : _buildFilteredExerciseList(),
+    );
+  }
+
+  Widget _buildFilteredExerciseList() {
+    return Column(
+      children: [
+        // Header with selected muscle group and clear button
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  _selectedMuscleGroup!.toUpperCase(),
+                  style: const TextStyle(
+                    fontFamily: 'Quicksand',
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedMuscleGroup = null;
+                  });
+                  // Clear filter
+                  final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+                  exerciseProvider.setMuscle(null);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.velvetHighlight,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Clear',
+                    style: TextStyle(
+                      fontFamily: 'Quicksand',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          
-          // Exercise list
-          Expanded(
-            child: Consumer<ExerciseProvider>(
-              builder: (context, exerciseProvider, child) {
-                if (exerciseProvider.isLoading) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final exercises = exerciseProvider.exercises;
-
-                if (exercises.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.fitness_center,
-                          size: 64,
-                          color: AppColors.velvetLight.withOpacity(0.5),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No exercises found',
-                          style: TextStyle(
-                            fontFamily: 'Quicksand',
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: exercises.length,
-                  itemBuilder: (context, index) {
-                    final exercise = exercises[index];
-                    return _buildExerciseCard(exercise);
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddExerciseModal,
-        backgroundColor: AppColors.velvetHighlight,
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
         ),
-      ),
+        
+        // Exercise list
+        Expanded(
+          child: Consumer<ExerciseProvider>(
+            builder: (context, exerciseProvider, child) {
+              if (exerciseProvider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final exercises = exerciseProvider.filteredExercises;
+
+              if (exercises.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.fitness_center,
+                        size: 64,
+                        color: AppColors.velvetLight.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No exercises found for $_selectedMuscleGroup',
+                        style: const TextStyle(
+                          fontFamily: 'Quicksand',
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: exercises.length,
+                itemBuilder: (context, index) {
+                  final exercise = exercises[index];
+                  return _buildExerciseCard(exercise);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -238,14 +270,6 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddSplitModal,
-        backgroundColor: AppColors.velvetHighlight,
-        child: const Icon(
-          Icons.add,
-          color: Colors.white,
-        ),
       ),
     );
   }
@@ -1458,6 +1482,120 @@ class _ExerciseBrowseScreenState extends State<ExerciseBrowseScreen>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMuscleGroupFilter() {
+    final muscleGroups = [
+      {'name': 'Abs', 'icon': 'assets/icons/abs.png'},
+      {'name': 'Chest', 'icon': 'assets/icons/chest.png'},
+      {'name': 'Back', 'icon': 'assets/icons/back.png'},
+      {'name': 'Arms', 'icon': 'assets/icons/arms.png'},
+      {'name': 'Legs', 'icon': 'assets/icons/legs.png'},
+      {'name': 'Shoulders', 'icon': 'assets/icons/shoulders.png'},
+      {'name': 'Glutes', 'icon': 'assets/icons/glutes.png'},
+      {'name': 'Calves', 'icon': 'assets/icons/calves.png'},
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'FOCUS AREA',
+            style: TextStyle(
+              fontFamily: 'Quicksand',
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                childAspectRatio: 0.9,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+              ),
+              itemCount: muscleGroups.length,
+              itemBuilder: (context, index) {
+                final muscleGroup = muscleGroups[index];
+                return _buildMuscleGroupCard(
+                  muscleGroup['name']!,
+                  muscleGroup['icon']!,
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMuscleGroupCard(String name, String iconPath) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedMuscleGroup = name;
+        });
+        // Apply filter to exercise provider
+        final exerciseProvider = Provider.of<ExerciseProvider>(context, listen: false);
+        exerciseProvider.setMuscle(name);
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.royalVelvet,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.asset(
+                  iconPath,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  color: Colors.white.withOpacity(0.8),
+                  colorBlendMode: BlendMode.srcIn,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Icon(
+                      Icons.fitness_center,
+                      color: Colors.white.withOpacity(0.7),
+                      size: 32,
+                    );
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: const TextStyle(
+                fontFamily: 'Quicksand',
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -7,7 +7,7 @@ import '../providers/split_provider.dart';
 import '../models/workout_split.dart';
 import '../theme/app_colors.dart';
 import '../widgets/streak_tracker_widget.dart';
-import '../widgets/compact_strength_chart_widget.dart';
+import '../widgets/analytics/strength_chart_widget.dart';
 import '../widgets/recent_workout_stats_widget.dart';
 import 'exercise_browse_screen.dart';
 import 'progression_settings_screen.dart';
@@ -45,7 +45,10 @@ class WorkoutDashboardScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 
                 // Strength chart
-                CompactStrengthChartWidget(strengthProgressData: strengthData),
+                SizedBox(
+                  height: 250,
+                  child: StrengthChartWidget(strengthProgressData: strengthData),
+                ),
                 const SizedBox(height: 16),
                 
                 // Recent workout stats
@@ -169,7 +172,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
         ),
       ),
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.7,
+        height: MediaQuery.of(context).size.height * 0.5,
         decoration: const BoxDecoration(
           color: AppColors.deepVelvet,
           borderRadius: BorderRadius.only(
@@ -177,7 +180,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
             topRight: Radius.circular(25),
           ),
         ),
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -240,7 +243,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
               color: AppColors.velvetHighlight,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           const Text(
             'No splits created yet',
             style: TextStyle(
@@ -250,7 +253,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             'Create a split to organize your workouts',
             style: TextStyle(
@@ -260,7 +263,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(context);
@@ -280,7 +283,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: () => _startEmptyWorkout(context, workoutProvider),
             icon: const Icon(Icons.play_arrow),
@@ -315,7 +318,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
             color: Colors.white,
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Expanded(
           child: ListView.builder(
             itemCount: splits.length + 1, // +1 for empty workout option
@@ -335,7 +338,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
 
   Widget _buildSplitCard(BuildContext context, WorkoutSplit split, WorkoutProvider workoutProvider) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       color: AppColors.royalVelvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -344,23 +347,23 @@ class WorkoutDashboardScreen extends StatelessWidget {
         onTap: () => _startWorkoutFromSplit(context, split, workoutProvider),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: AppColors.velvetHighlight.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.fitness_center,
                   color: AppColors.velvetHighlight,
-                  size: 24,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -400,7 +403,7 @@ class WorkoutDashboardScreen extends StatelessWidget {
 
   Widget _buildEmptyWorkoutCard(BuildContext context, WorkoutProvider workoutProvider) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       color: AppColors.royalVelvet,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -410,23 +413,23 @@ class WorkoutDashboardScreen extends StatelessWidget {
         onTap: () => _startEmptyWorkout(context, workoutProvider),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.add_circle_outline,
                   color: Colors.white,
-                  size: 24,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

@@ -125,7 +125,7 @@ class _ProgressionSettingsScreenState extends State<ProgressionSettingsScreen> {
         backgroundColor: AppColors.deepVelvet,
         appBar: AppBar(
           title: const Text('Progression Settings'),
-          backgroundColor: AppColors.royalVelvet,
+          backgroundColor: AppColors.deepVelvet,
         ),
         body: const Center(
           child: CircularProgressIndicator(
@@ -143,7 +143,7 @@ class _ProgressionSettingsScreenState extends State<ProgressionSettingsScreen> {
         backgroundColor: AppColors.deepVelvet,
         appBar: AppBar(
           title: const Text('Progression Settings'),
-          backgroundColor: AppColors.royalVelvet,
+          backgroundColor: AppColors.deepVelvet,
           actions: [
             if (!_isSaving)
               IconButton(

@@ -27,55 +27,17 @@ class PRTimelineWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Personal Records',
-                style: TextStyle(
-                  fontFamily: 'Quicksand',
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.velvetMist.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '${recentPRs.length} records',
-                  style: TextStyle(
-                    fontFamily: 'Quicksand',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.velvetMist,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 1,
-                childAspectRatio: 4.5,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: recentPRs.length,
-              itemBuilder: (context, index) {
-                final pr = recentPRs[index];
-                return _buildPRCard(pr);
-              },
-            ),
-          ),
-        ],
+      child: GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 1,
+          childAspectRatio: 4.5,
+          mainAxisSpacing: 12,
+        ),
+        itemCount: recentPRs.length,
+        itemBuilder: (context, index) {
+          final pr = recentPRs[index];
+          return _buildPRCard(pr);
+        },
       ),
     );
   }
